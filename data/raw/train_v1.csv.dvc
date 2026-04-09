@@ -3,3 +3,7 @@ outs:
   size: 84701362
   hash: md5
   path: train_v1.csv
+
+meta:
+  version: v1.0
+  date: 09/04/2026
