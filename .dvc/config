@@ -1,0 +1,5 @@
+[core]
+    remote = storage
+['remote "storage"']
+    url = s3://mlops-data-storage/dvc-storage/
+    region = ap-southeast-1
