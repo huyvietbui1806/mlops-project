@@ -1,0 +1,13 @@
+# Virtual environments
+. venv /
+venv /
+env /
+# Jupyter artifacts
+. ipynb_checkpoints /
+# ML model files
+*. pkl
+*. pt
+*. h5
+mlruns /
+# OS - specific
+. DS_Store
