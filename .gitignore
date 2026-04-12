@@ -10,4 +10,4 @@ env /
 *. h5
 mlruns /
 # OS - specific
-. DS_Store
+. DS_Storedata/csv/transactions.csv
