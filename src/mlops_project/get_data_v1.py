@@ -10,8 +10,8 @@ TRAIN_FILE_ID = "18PQSky51zCjLbX-wKJ8Meb9ZFe4Pxxjq"
 TEST_FILE_ID  = "1bpOkO9WV6saLWMxF4swk1Ukiw9b_s3oP"  
 
 # ===== 3. Output file paths =====
-train_output_path = os.path.join(OUTPUT_DIR, "train_v1.csv")
-test_output_path  = os.path.join(OUTPUT_DIR, "test_v1.csv")
+train_output_path = os.path.join(OUTPUT_DIR, "train.csv")
+test_output_path  = os.path.join(OUTPUT_DIR, "test.csv")
 
 # ===== 4. Download URLs =====
 train_url = f"https://drive.google.com/uc?id={TRAIN_FILE_ID}"
