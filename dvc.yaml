@@ -1,0 +1,19 @@
+stages:
+  feature_engineering:
+    cmd: python src/features/engineering.py
+    deps:
+      - src/features/engineering.py
+      - data/raw/train.csv
+      - data/raw/test.csv
+    outs:
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+
+  train_model:
+    cmd: python src/model/train_models.py
+    deps:
+      - src/model/train_models.py
+      - data/processed/train_processed.csv
+      - data/processed/test_processed.csv
+    outs:
+      - models/trained_model.pkl
