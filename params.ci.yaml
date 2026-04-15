@@ -11,7 +11,7 @@ paths:
   models_dir: models/ci
 
 mlflow:
-  tracking_uri: ""
+  tracking_uri: file:./mlruns
 
 tune:
   n_trials: 3
