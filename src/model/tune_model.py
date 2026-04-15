@@ -204,7 +204,7 @@ def main(args: argparse.Namespace) -> None:
     dataset_branch = model_cfg["dataset"]
     baseline_params = model_cfg["params"]
 
-    if args.mlflow_tracking_uri:
+    if args.mlflow_tracking_uri and args.mlflow_tracking_uri.strip():
         mlflow.set_tracking_uri(args.mlflow_tracking_uri)
 
     mlflow.set_experiment(f"{experiment_name}-tuning")

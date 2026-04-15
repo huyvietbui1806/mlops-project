@@ -322,7 +322,7 @@ def main(args: argparse.Namespace) -> None:
     use_smote = bool(resampling_cfg.get("use_smote", False))
     smote_random_state = int(resampling_cfg.get("random_state", 42))
 
-    if args.mlflow_tracking_uri:
+    if args.mlflow_tracking_uri and args.mlflow_tracking_uri.strip():
         mlflow.set_tracking_uri(args.mlflow_tracking_uri)
     mlflow.set_experiment(experiment_name)
 
