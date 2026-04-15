@@ -22,7 +22,7 @@ stages:
 
   train_models:
     cmd: >
-      uv run python src/models/train_models.py
+      uv run python src/model/train_models.py
         --config configs/model_config.yaml
         --train-log ${data.train_log_path}
         --test-log ${data.test_log_path}
@@ -31,7 +31,7 @@ stages:
         --reports-dir ${paths.reports_dir}
         --mlflow-tracking-uri ${mlflow.tracking_uri}
     deps:
-      - src/models/train_models.py
+      - src/model/train_models.py
       - configs/model_config.yaml
       - ${data.train_log_path}
       - ${data.test_log_path}
@@ -49,7 +49,7 @@ stages:
 
   tune_model:
     cmd: >
-      uv run python src/models/tune_model.py
+      uv run python src/model/tune_model.py
         --config configs/model_config.yaml
         --best-model-json ${paths.reports_dir}/best_model.json
         --train-log ${data.train_log_path}
@@ -61,7 +61,7 @@ stages:
         --n-trials ${tune.n_trials}
         --cv ${tune.cv}
     deps:
-      - src/models/tune_model.py
+      - src/model/tune_model.py
       - configs/model_config.yaml
       - ${paths.reports_dir}/best_model.json
       - ${data.train_log_path}
