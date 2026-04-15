@@ -1,0 +1,18 @@
+data:
+  train_path: data/sample/sample_train.csv
+  test_path: data/sample/sample_test.csv
+  train_log_path: data/processed/sample_train_log.parquet
+  test_log_path: data/processed/sample_test_log.parquet
+  train_tree_path: data/processed/sample_train_tree.parquet
+  test_tree_path: data/processed/sample_test_tree.parquet
+
+paths:
+  reports_dir: reports/ci
+  models_dir: models/ci
+
+mlflow:
+  tracking_uri: ""
+
+tune:
+  n_trials: 3
+  cv: 2

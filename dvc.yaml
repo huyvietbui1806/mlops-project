@@ -1,19 +1,79 @@
 stages:
   feature_engineering:
-    cmd: python src/features/engineering.py
+    cmd: >
+      uv run python src/features/engineering.py
+        --train-input ${data.train_path}
+        --test-input ${data.test_path}
+        --train-log-output ${data.train_log_path}
+        --test-log-output ${data.test_log_path}
+        --train-tree-output ${data.train_tree_path}
+        --test-tree-output ${data.test_tree_path}
     deps:
       - src/features/engineering.py
-      - data/raw/train.csv
-      - data/raw/test.csv
+      - ${data.train_path}
+      - ${data.test_path}
+    params:
+      - data
     outs:
-      - data/processed/train_processed.csv
-      - data/processed/test_processed.csv
+      - ${data.train_log_path}
+      - ${data.test_log_path}
+      - ${data.train_tree_path}
+      - ${data.test_tree_path}
 
-  train_model:
-    cmd: python src/model/train_models.py
+  train_models:
+    cmd: >
+      uv run python src/models/train_models.py
+        --config configs/model_config.yaml
+        --train-log ${data.train_log_path}
+        --test-log ${data.test_log_path}
+        --train-tree ${data.train_tree_path}
+        --test-tree ${data.test_tree_path}
+        --reports-dir ${paths.reports_dir}
+        --mlflow-tracking-uri ${mlflow.tracking_uri}
     deps:
-      - src/model/train_models.py
-      - data/processed/train_processed.csv
-      - data/processed/test_processed.csv
+      - src/models/train_models.py
+      - configs/model_config.yaml
+      - ${data.train_log_path}
+      - ${data.test_log_path}
+      - ${data.train_tree_path}
+      - ${data.test_tree_path}
+    params:
+      - data
+      - paths
+      - mlflow
     outs:
-      - models/trained_model.pkl
+      - ${paths.reports_dir}/baseline_leaderboard.csv:
+          cache: false
+      - ${paths.reports_dir}/best_model.json:
+          cache: false
+
+  tune_model:
+    cmd: >
+      uv run python src/models/tune_model.py
+        --config configs/model_config.yaml
+        --best-model-json ${paths.reports_dir}/best_model.json
+        --train-log ${data.train_log_path}
+        --test-log ${data.test_log_path}
+        --train-tree ${data.train_tree_path}
+        --test-tree ${data.test_tree_path}
+        --models-dir ${paths.models_dir}
+        --mlflow-tracking-uri ${mlflow.tracking_uri}
+        --n-trials ${tune.n_trials}
+        --cv ${tune.cv}
+    deps:
+      - src/models/tune_model.py
+      - configs/model_config.yaml
+      - ${paths.reports_dir}/best_model.json
+      - ${data.train_log_path}
+      - ${data.test_log_path}
+      - ${data.train_tree_path}
+      - ${data.test_tree_path}
+    params:
+      - data
+      - paths
+      - mlflow
+      - tune
+    outs:
+      - ${paths.models_dir}/trained/trained_model.pkl
+      - ${paths.models_dir}/trained/trained_model_meta.json:
+          cache: false

@@ -1,0 +1,18 @@
+data:
+  train_path: data/raw/train.csv
+  test_path: data/raw/test.csv
+  train_log_path: data/processed/train_log.parquet
+  test_log_path: data/processed/test_log.parquet
+  train_tree_path: data/processed/train_tree.parquet
+  test_tree_path: data/processed/test_tree.parquet
+
+paths:
+  reports_dir: reports/training
+  models_dir: models
+
+mlflow:
+  tracking_uri: http://localhost:5555
+
+tune:
+  n_trials: 10
+  cv: 3
