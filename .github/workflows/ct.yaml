@@ -53,9 +53,22 @@ jobs:
         run: |
           uv run dvc pull data/raw/train.csv data/raw/test.csv
       
-      - name: Check AWS identity
+            - name: Check AWS identity
         run: |
           aws sts get-caller-identity
+
+      - name: Check AWS config
+        run: |
+          aws configure list
+
+      - name: Test S3 access (list)
+        run: |
+          aws s3 ls s3://${{ env.S3_BUCKET_NAME }}
+
+      - name: Test S3 upload (PutObject)
+        run: |
+          echo "test" > test.txt
+          aws s3 cp test.txt s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts/test.txt
 
       - name: Start MLflow server
         run: |
