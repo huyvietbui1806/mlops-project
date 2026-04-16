@@ -97,7 +97,7 @@ jobs:
           git add reports/training/baseline_leaderboard.csv
           git add reports/training/best_model.json
           git add models/trained/trained_model_meta.json
-          git add models/trained/trained_model.pkl
+          git add -f models/trained/trained_model.pkl
           git add dvc.lock
           git diff --cached --quiet || git commit -m "ct: retrain $(date +'%Y-%m-%d') [skip ci]"
           git push
