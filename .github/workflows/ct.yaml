@@ -18,11 +18,11 @@ jobs:
     permissions:
       contents: write
 
-    env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
-      AWS_ACCESS_KEY_ID:     ${{ secrets.NEW_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.NEW_AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:    ${{ secrets.AWS_DEFAULT_REGION }}
-      S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}       # chỗ này có thể là S3_BUCKET hoặc AWS_S3_BUCKET tại không nhớ lúc aws configure nó hỏi gì, có thể dùng 1 máy để chạy thử lại
+    # env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
+    #   AWS_ACCESS_KEY_ID:     ${{ secrets.NEW_AWS_ACCESS_KEY_ID }}
+    #   AWS_SECRET_ACCESS_KEY: ${{ secrets.NEW_AWS_SECRET_ACCESS_KEY }}
+    #   AWS_DEFAULT_REGION:    ${{ secrets.AWS_DEFAULT_REGION }}
+    #   S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}       # chỗ này có thể là S3_BUCKET hoặc AWS_S3_BUCKET tại không nhớ lúc aws configure nó hỏi gì, có thể dùng 1 máy để chạy thử lại
 
     steps:
       - name: Checkout code
@@ -32,6 +32,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Set up AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.NEW_AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.NEW_AWS_SECRET_ACCESS_KEY }}
+          aws configure set region us-east-1
+
+      - name: Sync with S3 bucket
+        run: |
+          aws s3 sync ./local-folder s3://your-bucket-name --delete
 
       - name: Install uv
         run: pip install uv
