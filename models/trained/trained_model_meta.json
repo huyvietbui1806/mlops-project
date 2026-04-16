@@ -1,0 +1,26 @@
+{
+  "selected_model": "catboost",
+  "dataset_branch": "tree",
+  "use_smote": false,
+  "n_trials": 10,
+  "best_params": {
+    "iterations": 284,
+    "depth": 5,
+    "learning_rate": 0.10171007515866269,
+    "loss_function": "Logloss",
+    "eval_metric": "AUC",
+    "random_seed": 42,
+    "verbose": 0,
+    "l2_leaf_reg": 2.7464118591910203
+  },
+  "best_cv_average_precision": 0.8738985308696731,
+  "test_metrics": {
+    "accuracy": 0.9934259943634212,
+    "precision": 0.880590717299578,
+    "recall": 0.720151828847481,
+    "f1_score": 0.7923310554290053,
+    "roc_auc": 0.9952383949005719,
+    "pr_auc": 0.8780295820374436
+  },
+  "mlflow_run_id": "6744347c59114feca72d6997bac83f3d"
+}

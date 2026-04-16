@@ -1,0 +1,167 @@
+schema: '2.0'
+stages:
+  feature_engineering:
+    cmd: uv run python src/features/engineering.py --train-input 
+      data/raw/train.csv --test-input data/raw/test.csv --train-log-output 
+      data/processed/train_log.parquet --test-log-output 
+      data/processed/test_log.parquet --train-tree-output 
+      data/processed/train_tree.parquet --test-tree-output 
+      data/processed/test_tree.parquet
+    deps:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 71cbfc58c90d5395ee12ac55cb690f0d
+      size: 21161300
+    - path: data/raw/train.csv
+      hash: md5
+      md5: b36bbe29222125a32dd0a5d40bd7c126
+      size: 84701362
+    - path: src/features/engineering.py
+      hash: md5
+      md5: 7ce520f8bc25504b683e49851471d00e
+      size: 9145
+    params:
+      params.yaml:
+        data:
+          train_path: data/raw/train.csv
+          test_path: data/raw/test.csv
+          train_log_path: data/processed/train_log.parquet
+          test_log_path: data/processed/test_log.parquet
+          train_tree_path: data/processed/train_tree.parquet
+          test_tree_path: data/processed/test_tree.parquet
+    outs:
+    - path: data/processed/test_log.parquet
+      hash: md5
+      md5: 33195c6ed01fb7eabda92a298642750e
+      size: 4933487
+    - path: data/processed/test_tree.parquet
+      hash: md5
+      md5: c8b0e737d80fa08e8a81e48268c42b0f
+      size: 4498422
+    - path: data/processed/train_log.parquet
+      hash: md5
+      md5: 010a10e2a6b312691000de41d7ffc5f5
+      size: 16792220
+    - path: data/processed/train_tree.parquet
+      hash: md5
+      md5: 7c91a6bf9fb630dd5fdb79202bd53cb4
+      size: 15294541
+  train_models:
+    cmd: uv run python src/model/train_models.py --config 
+      configs/model_config.yaml --train-log data/processed/train_log.parquet 
+      --test-log data/processed/test_log.parquet --train-tree 
+      data/processed/train_tree.parquet --test-tree 
+      data/processed/test_tree.parquet --reports-dir reports/training 
+      --mlflow-tracking-uri http://localhost:5555
+    deps:
+    - path: configs/model_config.yaml
+      hash: md5
+      md5: 6630810452b745e117d6e14e3376dca0
+      size: 1134
+    - path: data/processed/test_log.parquet
+      hash: md5
+      md5: 33195c6ed01fb7eabda92a298642750e
+      size: 4933487
+    - path: data/processed/test_tree.parquet
+      hash: md5
+      md5: c8b0e737d80fa08e8a81e48268c42b0f
+      size: 4498422
+    - path: data/processed/train_log.parquet
+      hash: md5
+      md5: 010a10e2a6b312691000de41d7ffc5f5
+      size: 16792220
+    - path: data/processed/train_tree.parquet
+      hash: md5
+      md5: 7c91a6bf9fb630dd5fdb79202bd53cb4
+      size: 15294541
+    - path: src/model/train_models.py
+      hash: md5
+      md5: d02f5ba305d9b2585b8cb6aba57b1faa
+      size: 15292
+    params:
+      params.yaml:
+        data:
+          train_path: data/raw/train.csv
+          test_path: data/raw/test.csv
+          train_log_path: data/processed/train_log.parquet
+          test_log_path: data/processed/test_log.parquet
+          train_tree_path: data/processed/train_tree.parquet
+          test_tree_path: data/processed/test_tree.parquet
+        mlflow:
+          tracking_uri: http://localhost:5555
+        paths:
+          reports_dir: reports/training
+          models_dir: models
+    outs:
+    - path: reports/training/baseline_leaderboard.csv
+      hash: md5
+      md5: 52e821c80182625d0108c01000510541
+      size: 1745
+    - path: reports/training/best_model.json
+      hash: md5
+      md5: 6dbf9d99ebbfb0bd287dc83ed9f15de9
+      size: 333
+  tune_model:
+    cmd: uv run python src/model/tune_model.py --config 
+      configs/model_config.yaml --best-model-json 
+      reports/training/best_model.json --train-log 
+      data/processed/train_log.parquet --test-log 
+      data/processed/test_log.parquet --train-tree 
+      data/processed/train_tree.parquet --test-tree 
+      data/processed/test_tree.parquet --models-dir models --mlflow-tracking-uri
+      http://localhost:5555 --n-trials 10 --cv 3
+    deps:
+    - path: configs/model_config.yaml
+      hash: md5
+      md5: 6630810452b745e117d6e14e3376dca0
+      size: 1134
+    - path: data/processed/test_log.parquet
+      hash: md5
+      md5: 33195c6ed01fb7eabda92a298642750e
+      size: 4933487
+    - path: data/processed/test_tree.parquet
+      hash: md5
+      md5: c8b0e737d80fa08e8a81e48268c42b0f
+      size: 4498422
+    - path: data/processed/train_log.parquet
+      hash: md5
+      md5: 010a10e2a6b312691000de41d7ffc5f5
+      size: 16792220
+    - path: data/processed/train_tree.parquet
+      hash: md5
+      md5: 7c91a6bf9fb630dd5fdb79202bd53cb4
+      size: 15294541
+    - path: reports/training/best_model.json
+      hash: md5
+      md5: 6dbf9d99ebbfb0bd287dc83ed9f15de9
+      size: 333
+    - path: src/model/tune_model.py
+      hash: md5
+      md5: 84425c65e521d4fe1403941fbfc2082a
+      size: 11366
+    params:
+      params.yaml:
+        data:
+          train_path: data/raw/train.csv
+          test_path: data/raw/test.csv
+          train_log_path: data/processed/train_log.parquet
+          test_log_path: data/processed/test_log.parquet
+          train_tree_path: data/processed/train_tree.parquet
+          test_tree_path: data/processed/test_tree.parquet
+        mlflow:
+          tracking_uri: http://localhost:5555
+        paths:
+          reports_dir: reports/training
+          models_dir: models
+        tune:
+          n_trials: 10
+          cv: 3
+    outs:
+    - path: models/trained/trained_model.pkl
+      hash: md5
+      md5: 9cac3212b1a0bcc49c58ce6c8679acd6
+      size: 178436
+    - path: models/trained/trained_model_meta.json
+      hash: md5
+      md5: 992d016a2a8428f244e9f8b44387dd0b
+      size: 684
