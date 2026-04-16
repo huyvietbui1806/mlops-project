@@ -52,6 +52,10 @@ jobs:
       - name: Pull latest data from S3     
         run: |
           uv run dvc pull data/raw/train.csv data/raw/test.csv
+      
+      - name: Check AWS identity
+        run: |
+          aws sts get-caller-identity
 
       - name: Start MLflow server
         run: |
