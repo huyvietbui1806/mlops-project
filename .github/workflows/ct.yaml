@@ -61,7 +61,7 @@ jobs:
         run: |
           uv run mlflow server \
             --backend-store-uri sqlite:///mlflow.db \
-            --default-artifact-root s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts \
+            --default-artifact-root ./mlruns \
             --host 0.0.0.0 \
             --port 5555 &
           sleep 5
@@ -70,9 +70,9 @@ jobs:
         run: |
           uv run dvc repro --force
 
-      - name: Push to S3
-        run: |
-          uv run dvc push
+      # - name: Push to S3
+      #   run: |
+      #     uv run dvc push
 
       - name: Commit reports and meta back to Git
         env:
