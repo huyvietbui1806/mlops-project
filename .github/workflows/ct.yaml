@@ -33,7 +33,8 @@ jobs:
           aws configure set region ${{ secrets.AWS_DEFAULT_REGION }}
       - name: Sync with S3 bucket (for MLflow artifacts)
         run: |
-          aws s3 sync ./mlflow-artifacts s3://$S3_BUCKET_NAME/$S3_ARTIFACTS_PREFIX --delete
+          mkdir -p mlflow-artifacts
+          aws s3 sync s3://$S3_BUCKET_NAME/$S3_ARTIFACTS_PREFIX ./mlflow-artifacts
 
       - name: Set up Python
         uses: actions/setup-python@v5
