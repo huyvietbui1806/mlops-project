@@ -19,8 +19,8 @@ jobs:
       contents: write
 
     env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
-      AWS_ACCESS_KEY_ID:     ${{ secrets.MLFLOW_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.MLFLOW_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID:     ${{ secrets.LOCAL_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION:    ${{ secrets.AWS_DEFAULT_REGION }}
       S3_BUCKET_NAME:         ${{ secrets.S3_BUCKET_NAME }}       # chỗ này có thể là S3_BUCKET hoặc AWS_S3_BUCKET tại không nhớ lúc aws configure nó hỏi gì, có thể dùng 1 máy để chạy thử lại
 
@@ -61,7 +61,7 @@ jobs:
         run: |
           uv run mlflow server \
             --backend-store-uri sqlite:///mlflow.db \
-            --default-artifact-root ./mlruns \
+            --default-artifact-root s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts \
             --host 0.0.0.0 \
             --port 5555 &
           sleep 5
@@ -70,9 +70,9 @@ jobs:
         run: |
           uv run dvc repro --force
 
-      # - name: Push to S3
-      #   run: |
-      #     uv run dvc push
+      - name: Push to S3
+        run: |
+          uv run dvc push
 
       - name: Commit reports and meta back to Git
         env:

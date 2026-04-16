@@ -14,5 +14,5 @@ mlflow:
   tracking_uri: http://localhost:5555
 
 tune:
-  n_trials: 10
+  n_trials: 5
   cv: 3
