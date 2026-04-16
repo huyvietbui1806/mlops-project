@@ -51,7 +51,7 @@ jobs:
 
       - name: Pull latest data from S3     
         run: |
-          uv run dvc pull    
+          uv run dvc pull data/raw/train.csv data/raw/test.csv
 
       - name: Start MLflow server
         run: |
