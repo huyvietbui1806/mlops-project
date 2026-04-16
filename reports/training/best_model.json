@@ -2,11 +2,11 @@
   "best_model_name": "catboost",
   "dataset": "tree",
   "use_smote": false,
-  "selection_score": 0.8764898903128908,
-  "pr_auc": 0.8764898903128908,
-  "roc_auc": 0.9951195639564876,
-  "f1_score": 0.7924528301886793,
-  "precision": 0.8850574712643678,
-  "recall": 0.717391304347826,
-  "run_id": "fd2a44a7fb0140ce8cfd682bfc1243b0"
+  "selection_score": 0.8763503210322419,
+  "pr_auc": 0.8763503210322419,
+  "roc_auc": 0.9951140391933617,
+  "f1_score": 0.7913806254767353,
+  "precision": 0.8844842284739983,
+  "recall": 0.7160110420979986,
+  "run_id": "9307e931cda14924ab0dbce68ddde2aa"
 }
