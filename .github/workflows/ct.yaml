@@ -17,16 +17,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
-    env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
-      AWS_ACCESS_KEY_ID:     ${{ secrets.NEW_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.NEW_AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:    ${{ secrets.AWS_DEFAULT_REGION }}
-      S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}       # chỗ này có thể là S3_BUCKET hoặc AWS_S3_BUCKET tại không nhớ lúc aws configure nó hỏi gì, có thể dùng 1 máy để chạy thử lại
-
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.MLFLOW_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.MLFLOW_AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: "ap-southeast-1"  # Thay đổi region thành Southeast Asia
+      S3_BUCKET_NAME: "mlops-data-storage"  # Tên bucket của bạn
+      S3_ARTIFACTS_PREFIX: "mlflow-artifacts" # Prefix nơi MLflow lưu artifacts
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Set up AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.MLFLOW_AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.MLFLOW_AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: Sync with S3 bucket (for MLflow artifacts)
+        run: |
+          aws s3 sync ./mlflow-artifacts s3://$S3_BUCKET_NAME/$S3_ARTIFACTS_PREFIX --delete
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,11 +59,6 @@ jobs:
       - name: Pull latest data from S3     
         run: |
           uv run dvc pull data/raw/train.csv data/raw/test.csv
-
-      - name: Debug S3 access
-        run: |
-          echo "test" > test.txt
-          aws s3 cp test.txt s3://${{ env.S3_BUCKET_NAME }}/debug/test.txt
 
       - name: Start MLflow server
         run: |
