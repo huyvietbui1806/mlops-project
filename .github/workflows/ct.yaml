@@ -82,6 +82,15 @@ jobs:
           echo "Waiting for MLflow server..."
           timeout 60 bash -c 'until curl -sf http://localhost:5555/health; do sleep 2; done'
           echo "MLflow server is up."
+      
+      - name: Debug S3 write permission
+        run: |
+          echo "=== Credentials being used ==="
+          aws sts get-caller-identity
+          echo "=== Test PutObject to mlflow-artifacts ==="
+          echo "test" > /tmp/test_write.txt
+          aws s3 cp /tmp/test_write.txt s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts/test_write.txt
+          echo "=== PutObject SUCCESS ==="
 
       - name: Run full training pipeline
         run: |
