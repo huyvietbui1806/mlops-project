@@ -41,7 +41,7 @@ jobs:
 
       - name: Sync with S3 bucket
         run: |
-          aws s3 sync ./local-folder s3://your-bucket-name --delete
+          aws s3 sync ./local-folder s3://mlops-data-storage --delete
 
       - name: Install uv
         run: pip install uv
