@@ -79,9 +79,9 @@ jobs:
             --default-artifact-root s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts \
             --host 0.0.0.0 \
             --port 5555 &
-        echo "Waiting for MLflow server..."
-        timeout 60 bash -c 'until curl -sf http://localhost:5555/health; do sleep 2; done'
-        echo "MLflow server is up."
+          echo "Waiting for MLflow server..."
+          timeout 60 bash -c 'until curl -sf http://localhost:5555/health; do sleep 2; done'
+          echo "MLflow server is up."
 
       - name: Run full training pipeline
         run: |
