@@ -87,7 +87,7 @@ jobs:
         run: |
           uv run dvc push
 
-      - name: Commit reports and meta back to Git
+      - name: Commit reports and meta back to Git # commit to Git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
