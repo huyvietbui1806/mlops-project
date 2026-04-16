@@ -8,21 +8,21 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from FeatureEngineering import add_features
-from schemas import FraudDetectionRequest, FraudResponse
+from .FeatureEngineering import add_features
+from .schemas import FraudDetectionRequest, FraudResponse
 
 # =====================
 # PATHS — khớp tune_model.py (trained + artifacts tách riêng)
 # =====================
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 MODELS_DIR = PROJECT_ROOT / "models"
 TRAINED_DIR = MODELS_DIR / "trained"
 ARTIFACT_DIR = MODELS_DIR / "artifacts"
 
-BEST_MODEL_JSON = TRAINED_DIR / "best_model.json"
+BEST_MODEL_JSON = PROJECT_ROOT / "reports" / "training" / "best_model.json"
 META_PATH = TRAINED_DIR / "trained_model_meta.json"
-MODEL_PATH = TRAINED_DIR / "fraud_model.pkl"
+MODEL_PATH = TRAINED_DIR / "trained_model.pkl"
 FE_PARAMS_PATH = TRAINED_DIR / "fe_params.pkl"
 COLUMNS_PATH = TRAINED_DIR / "model_columns.pkl"
 
