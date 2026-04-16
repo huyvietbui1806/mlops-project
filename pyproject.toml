@@ -11,6 +11,7 @@ requires-python = ">=3.11,<3.14"
 
 dependencies = [
     "awscli>=1.44.74",
+    "boto3",
     "catboost>=1.2,<2",
     "dvc>=3.67.1",
     "dvc-s3>=3.3.0",
