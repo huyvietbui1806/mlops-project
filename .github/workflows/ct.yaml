@@ -2,10 +2,10 @@ name: CT Pipeline
 
 on:
   schedule:
-    - cron: "0 0 * * 0"   # Retrain mỗi chủ nhật lúc 0AM UTC
-  push:
+    - cron: "0 0 * * 0"   # Retrain mỗi chủ nhật lúc 0AM UTC - cái này thay đổi được
+  push:                     # Chạy khi có lệnh push vào nhánh main
     branches: [ main ]
-    paths:
+    paths:                  # Chỉ trigger khi có thay đổi liên quan, có thể điều chỉnh thêm những files mà mình muốn chạy lại khi mấy files này thay đổi
       - "data/raw/**"
       - "src/**"
       - "configs/**"
@@ -18,11 +18,11 @@ jobs:
     permissions:
       contents: write
 
-    env:
+    env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
       AWS_ACCESS_KEY_ID:     ${{ secrets.LOCAL_AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION:    ap-southeast-1
-      S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}
+      AWS_DEFAULT_REGION: ap-southeast-1
+      S3_BUCKET_NAME:         ${{ secrets.S3_BUCKET_NAME }}       # chỗ này có thể là S3_BUCKET hoặc AWS_S3_BUCKET tại không nhớ lúc aws configure nó hỏi gì, có thể dùng 1 máy để chạy thử lại
 
     steps:
       - name: Checkout code
@@ -49,28 +49,26 @@ jobs:
       - name: Sync environment
         run: uv sync
 
-      - name: Pull latest data from S3
+      - name: Pull latest data from S3     
         run: |
           uv run dvc pull data/raw/train.csv data/raw/test.csv
-
-      # # ── Debug steps (có thể xoá sau khi confirm hoạt động) ──────────────
+      
       # - name: Check AWS identity
-      #   run: aws sts get-caller-identity
+      #   run: |
+      #     aws sts get-caller-identity
+
+      # - name: Check AWS config
+      #   run: |
+      #     aws configure list
 
       # - name: Test S3 access (list)
-      #   run: aws s3 ls s3://${{ env.S3_BUCKET_NAME }}
+      #   run: |
+      #     aws s3 ls s3://${{ env.S3_BUCKET_NAME }}
 
       # - name: Test S3 upload (PutObject)
       #   run: |
       #     echo "test" > test.txt
       #     aws s3 cp test.txt s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts/test.txt
-      # # ────────────────────────────────────────────────────────────────────
-
-      - name: Set AWS env for all steps
-        run: |
-          echo "AWS_ACCESS_KEY_ID=${{ secrets.LOCAL_AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=ap-southeast-1" >> $GITHUB_ENV
 
       - name: Start MLflow server
         run: |
@@ -79,28 +77,17 @@ jobs:
             --default-artifact-root s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts \
             --host 0.0.0.0 \
             --port 5555 &
-          echo "Waiting for MLflow server..."
-          timeout 60 bash -c 'until curl -sf http://localhost:5555/health; do sleep 2; done'
-          echo "MLflow server is up."
-      
-      - name: Debug S3 write permission
-        run: |
-          echo "=== Credentials being used ==="
-          aws sts get-caller-identity
-          echo "=== Test PutObject to mlflow-artifacts ==="
-          echo "test" > /tmp/test_write.txt
-          aws s3 cp /tmp/test_write.txt s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts/test_write.txt
-          echo "=== PutObject SUCCESS ==="
+          sleep 5
 
       - name: Run full training pipeline
         run: |
           uv run dvc repro --force
 
-      - name: Push artifacts to S3 (DVC)
-        run: |
-          uv run dvc push
+      # - name: Push to S3
+      #   run: |
+      #     uv run dvc push
 
-      - name: Commit reports and meta back to Git
+      - name: Commit reports and meta back to Git # commit to Git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -110,6 +97,7 @@ jobs:
           git add reports/training/baseline_leaderboard.csv
           git add reports/training/best_model.json
           git add models/trained/trained_model_meta.json
+          git add models/trained/trained_model.pkl
           git add dvc.lock
           git diff --cached --quiet || git commit -m "ct: retrain $(date +'%Y-%m-%d') [skip ci]"
           git push
