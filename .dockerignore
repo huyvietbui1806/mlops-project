@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+.git
+.github
+data/raw
+notebooks
+mlruns
+dist
+build
