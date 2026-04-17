@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import joblib
+import mlflow
 import optuna
 import pandas as pd
 import yaml
@@ -61,6 +62,7 @@ def parse_args() -> argparse.Namespace:
     # Output root
     parser.add_argument("--models-dir", default="models")
 
+    parser.add_argument("--mlflow-tracking-uri", default="http://localhost:5555")
     parser.add_argument("--n-trials", type=int, default=2)
     parser.add_argument("--cv", type=int, default=2)
 
@@ -113,7 +115,8 @@ def maybe_smote(x: pd.DataFrame, y: pd.Series, use_smote: bool, random_state: in
 
 def default_cfg() -> dict[str, Any]:
     return {
-        "experiment": {"target": "is_fraud"},
+        "experiment": {"target": "is_fraud", "name": "fraud-model-selection"},
+        "resampling": {"use_smote": True, "random_state": 42},
         "models": {
             "logistic_regression": {"dataset": "log", "params": {"solver": "lbfgs", "max_iter": 1000}},
             "xgboost": {"dataset": "tree", "params": {"eval_metric": "logloss", "n_jobs": -1}},
@@ -190,6 +193,8 @@ def suggest_params(trial: optuna.Trial, name: str, base: dict[str, Any]) -> dict
             {
                 "iterations": trial.suggest_int("iterations", 150, 500),
                 "depth": trial.suggest_int("depth", 4, 10),
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
+                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
             }
         )
 
@@ -223,6 +228,14 @@ def main() -> None:
         cfg = default_cfg()
 
     target = cfg.get("experiment", {}).get("target", "is_fraud")
+    experiment_name = cfg.get("experiment", {}).get("name", "fraud-model-selection")
+    resampling_cfg = cfg.get("resampling", {})
+    use_smote = bool(resampling_cfg.get("use_smote", True))
+    smote_random_state = int(resampling_cfg.get("random_state", 42))
+
+    if args.mlflow_tracking_uri:
+        mlflow.set_tracking_uri(args.mlflow_tracking_uri)
+    mlflow.set_experiment(f"{experiment_name}-tuning")
 
     # ---- best model name (optional) ----
     best_model_name = "logistic_regression"
@@ -268,15 +281,16 @@ def main() -> None:
     x_train = drop_datetime_columns(x_train)
     x_test = drop_datetime_columns(x_test)
 
-    # SMOTE
-    x_train, y_train = maybe_smote(x_train, y_train, True, 42)
+    # SMOTE from config
+    x_train, y_train = maybe_smote(x_train, y_train, use_smote, smote_random_state)
 
     cv = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=42)
 
     def objective(trial: optuna.Trial) -> float:
         params = suggest_params(trial, best_model_name, base_params)
         model = build_model(best_model_name, params)
-        return float(
+
+        score = float(
             cross_val_score(
                 model,
                 x_train,
@@ -286,85 +300,127 @@ def main() -> None:
             ).mean()
         )
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=args.n_trials)
+        with mlflow.start_run(run_name=f"optuna_trial_{trial.number}", nested=True):
+            mlflow.log_param("selected_model", best_model_name)
+            mlflow.log_param("dataset_branch", dataset_branch)
+            mlflow.log_param("use_smote", use_smote)
+            mlflow.log_param("trial_number", trial.number)
+            mlflow.log_params(params)
+            mlflow.log_metric("cv_average_precision", score)
 
-    best_params = suggest_params(
-        optuna.trial.FixedTrial(study.best_params),
-        best_model_name,
-        base_params,
-    )
+        return score
 
-    model = build_model(best_model_name, best_params)
-    model.fit(x_train, y_train)
+    with mlflow.start_run(run_name=f"tune_{best_model_name}"):
+        mlflow.log_param("selected_model", best_model_name)
+        mlflow.log_param("dataset_branch", dataset_branch)
+        mlflow.log_param("use_smote", use_smote)
+        mlflow.log_param("n_trials", args.n_trials)
+        mlflow.log_param("cv", args.cv)
 
-    y_pred = model.predict(x_test)
-    y_score = model.predict_proba(x_test)[:, 1]
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=args.n_trials)
 
-    metrics = compute_metrics(y_test, y_pred, y_score)
-    logger.info(f"Metrics: {metrics}")
+        best_params = suggest_params(
+            optuna.trial.FixedTrial(study.best_params),
+            best_model_name,
+            base_params,
+        )
 
-    # ---- save (match your screenshot) ----
-    trained_dir = Path(args.models_dir) / "trained"
-    artifact_dir = Path(args.models_dir) / "artifacts"
-    trained_dir.mkdir(parents=True, exist_ok=True)
-    artifact_dir.mkdir(parents=True, exist_ok=True)
+        model = build_model(best_model_name, best_params)
+        model.fit(x_train, y_train)
 
-    model_path = trained_dir / "fraud_model.pkl"
-    joblib.dump(model, model_path)
+        y_pred = model.predict(x_test)
+        y_score = model.predict_proba(x_test)[:, 1]
 
-    joblib.dump(fe_params, trained_dir / "fe_params.pkl")
-    joblib.dump(x_train.columns.tolist(), trained_dir / "model_columns.pkl")
+        metrics = compute_metrics(y_test, y_pred, y_score)
+        logger.info(f"Metrics: {metrics}")
 
-    # encoder/scaler artifacts (optional)
-    if dataset_branch == "log":
-        cat_cols = x_train.select_dtypes(include=["object"]).columns.tolist()
-        num_cols = [c for c in x_train.columns if c not in cat_cols]
+        mlflow.log_metric("best_cv_average_precision", float(study.best_value))
+        mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
+        mlflow.log_metrics(metrics)
 
-        encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-        scaler = StandardScaler()
+        # ---- save (match your screenshot) ----
+        trained_dir = Path(args.models_dir) / "trained"
+        artifact_dir = Path(args.models_dir) / "artifacts"
+        trained_dir.mkdir(parents=True, exist_ok=True)
+        artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        if cat_cols:
-            encoder.fit(x_train[cat_cols])
-            joblib.dump(encoder, artifact_dir / "onehot_encoder.pkl")
+        model_path = trained_dir / "fraud_model.pkl"
+        joblib.dump(model, model_path)
 
-        if num_cols:
-            scaler.fit(x_train[num_cols])
-            joblib.dump(scaler, artifact_dir / "scaler.pkl")
-    else:
-        # ✅ Fit label encoders based on known categorical columns, not dtype=object
-        cate_cols = [
-            "merchant_category",
-            "merchant_country",
-            "device_type",
-            "mcc_code",
-            "hour_of_day",
-            "day_of_week",
-        ]
-        cate_cols = [c for c in cate_cols if c in x_train.columns]
+        joblib.dump(fe_params, trained_dir / "fe_params.pkl")
+        joblib.dump(x_train.columns.tolist(), trained_dir / "model_columns.pkl")
 
-        encoders: dict[str, LabelEncoder] = {}
-        for col in cate_cols:
-            le = LabelEncoder()
-            le.fit(x_train[col].astype(str))
-            encoders[col] = le
+        # encoder/scaler artifacts (optional)
+        if dataset_branch == "log":
+            cat_cols = x_train.select_dtypes(include=["object"]).columns.tolist()
+            num_cols = [c for c in x_train.columns if c not in cat_cols]
 
-        joblib.dump(encoders, artifact_dir / "label_encoders.pkl")
+            encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+            scaler = StandardScaler()
 
-    meta = {
-        "selected_model": best_model_name,
-        "dataset_branch": dataset_branch,
-        "best_params": best_params,
-        "metrics": metrics,
-        "model_path": str(model_path),
-        "target": target,
-    }
+            if cat_cols:
+                encoder.fit(x_train[cat_cols])
+                joblib.dump(encoder, artifact_dir / "onehot_encoder.pkl")
 
-    with open(trained_dir / "trained_model_meta.json", "w") as f:
-        json.dump(meta, f, indent=2)
+            if num_cols:
+                scaler.fit(x_train[num_cols])
+                joblib.dump(scaler, artifact_dir / "scaler.pkl")
+        else:
+            # ✅ Fit label encoders based on known categorical columns, not dtype=object
+            cate_cols = [
+                "merchant_category",
+                "merchant_country",
+                "device_type",
+                "mcc_code",
+                "hour_of_day",
+                "day_of_week",
+            ]
+            cate_cols = [c for c in cate_cols if c in x_train.columns]
 
-    logger.info("Training complete. Artifacts saved.")
-    logger.info(f"Saved model to: {model_path}")
+            encoders: dict[str, LabelEncoder] = {}
+            for col in cate_cols:
+                le = LabelEncoder()
+                le.fit(x_train[col].astype(str))
+                encoders[col] = le
+
+            joblib.dump(encoders, artifact_dir / "label_encoders.pkl")
+
+        meta = {
+            "selected_model": best_model_name,
+            "dataset_branch": dataset_branch,
+            "best_params": best_params,
+            "best_cv_average_precision": float(study.best_value),
+            "metrics": metrics,
+            "model_path": str(model_path),
+            "target": target,
+            "use_smote": use_smote,
+            "mlflow_run_id": mlflow.active_run().info.run_id,
+        }
+
+        meta_path = trained_dir / "trained_model_meta.json"
+        with open(meta_path, "w") as f:
+            json.dump(meta, f, indent=2)
+
+        mlflow.log_artifact(str(model_path), artifact_path="models")
+        mlflow.log_artifact(str(meta_path), artifact_path="reports")
+        mlflow.log_artifact(str(trained_dir / "fe_params.pkl"), artifact_path="reports")
+        mlflow.log_artifact(str(trained_dir / "model_columns.pkl"), artifact_path="reports")
+
+        if dataset_branch == "log":
+            if (artifact_dir / "onehot_encoder.pkl").exists():
+                mlflow.log_artifact(str(artifact_dir / "onehot_encoder.pkl"), artifact_path="reports")
+            if (artifact_dir / "scaler.pkl").exists():
+                mlflow.log_artifact(str(artifact_dir / "scaler.pkl"), artifact_path="reports")
+        else:
+            if (artifact_dir / "label_encoders.pkl").exists():
+                mlflow.log_artifact(str(artifact_dir / "label_encoders.pkl"), artifact_path="reports")
+
+        mlflow.sklearn.log_model(model, name="final_model")
+
+        logger.info("Training complete. Artifacts saved.")
+        logger.info(f"Saved model to: {model_path}")
+        logger.info(f"MLflow run id: {mlflow.active_run().info.run_id}")
 
 
 if __name__ == "__main__":
