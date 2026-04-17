@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from .FeatureEngineering import add_features
+from ..features.FeatureEngineering import add_features
 from .schemas import FraudDetectionRequest, FraudResponse
 
 # =====================

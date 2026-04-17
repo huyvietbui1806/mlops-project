@@ -7,11 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import joblib
-import mlflow
-import numpy as np
 import optuna
 import pandas as pd
 import yaml
+
 from catboost import CatBoostClassifier
 from imblearn.over_sampling import SMOTE
 from lightgbm import LGBMClassifier
@@ -20,11 +19,10 @@ from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     f1_score,
-    precision_score,
-    recall_score,
     roc_auc_score,
 )
 from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
 
@@ -35,284 +33,339 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# =====================
+# ARGPARSE
+# =====================
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Tune selected model family with Optuna.")
-    parser.add_argument("--config", type=str, required=True, help="Path to model_config.yaml")
-    parser.add_argument(
-        "--best-model-json",
-        type=str,
-        required=True,
-        help="Path to JSON file containing best_model_name",
-    )
-    parser.add_argument("--train-log", type=str, required=True)
-    parser.add_argument("--test-log", type=str, required=True)
-    parser.add_argument("--train-tree", type=str, required=True)
-    parser.add_argument("--test-tree", type=str, required=True)
-    parser.add_argument("--models-dir", type=str, required=True)
-    parser.add_argument("--mlflow-tracking-uri", type=str, default=None)
-    parser.add_argument("--n-trials", type=int, default=10)
-    parser.add_argument("--cv", type=int, default=3)
+    """
+    Defaults so you can run:
+      python tune_model.py
+    """
+    parser = argparse.ArgumentParser()
+
+    # Optional config (fallback to defaults in code if missing)
+    parser.add_argument("--config", default=None)
+
+    # Optional best model selector
+    parser.add_argument("--best-model-json", default="reports/training/best_model.json")
+
+    # FeatureEngineering outputs
+    parser.add_argument("--train-log", default="data/processed/train_log.parquet")
+    parser.add_argument("--test-log", default="data/processed/test_log.parquet")
+    parser.add_argument("--train-tree", default="data/processed/train_tree.parquet")
+    parser.add_argument("--test-tree", default="data/processed/test_tree.parquet")
+
+    # FeatureEngineering params
+    parser.add_argument("--fe-params", default="models/trained/fe_params.pkl")
+
+    # Output root
+    parser.add_argument("--models-dir", default="models")
+
+    parser.add_argument("--n-trials", type=int, default=2)
+    parser.add_argument("--cv", type=int, default=2)
+
     return parser.parse_args()
 
 
+# =====================
+# UTILS
+# =====================
 def load_yaml(path: str) -> dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r") as f:
         return yaml.safe_load(f)
 
 
 def load_json(path: str) -> dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r") as f:
         return json.load(f)
 
 
 def load_table(path: str) -> pd.DataFrame:
     p = Path(path)
     if not p.exists():
-        raise FileNotFoundError(f"File not found: {path}")
+        raise FileNotFoundError(
+            f"Missing dataset file: {path}\n"
+            f"Tip: run FeatureEngineering.py first or pass correct paths via CLI."
+        )
 
-    if p.suffix.lower() == ".csv":
+    if p.suffix == ".csv":
         return pd.read_csv(p)
-    if p.suffix.lower() == ".parquet":
+    if p.suffix == ".parquet":
         return pd.read_parquet(p)
 
-    raise ValueError(f"Unsupported file format: {p.suffix}")
+    raise ValueError(f"Unsupported format: {p.suffix}")
 
 
-def split_xy(df: pd.DataFrame, target: str) -> tuple[pd.DataFrame, pd.Series]:
+def split_xy(df: pd.DataFrame, target: str):
     if target not in df.columns:
-        raise ValueError(f"Target column '{target}' not found")
-    x = df.drop(columns=[target])
-    y = df[target].astype(int)
-    return x, y
+        raise KeyError(f"Target column '{target}' not found. Columns: {list(df.columns)[:30]} ...")
+    return df.drop(columns=[target]), df[target].astype(int)
 
 
-def maybe_apply_smote(
-    x_train: pd.DataFrame,
-    y_train: pd.Series,
-    use_smote: bool,
-    random_state: int,
-) -> tuple[pd.DataFrame, pd.Series]:
+def maybe_smote(x: pd.DataFrame, y: pd.Series, use_smote: bool, random_state: int):
     if not use_smote:
-        return x_train, y_train
+        return x, y
 
     smote = SMOTE(random_state=random_state)
-    x_res, y_res = smote.fit_resample(x_train, y_train)
-    x_res = pd.DataFrame(x_res, columns=x_train.columns)
-    y_res = pd.Series(y_res, name=y_train.name)
-    return x_res, y_res
+    x_res, y_res = smote.fit_resample(x, y)
+    return pd.DataFrame(x_res, columns=x.columns), pd.Series(y_res)
 
 
-def build_model(model_name: str, params: dict[str, Any]) -> Any:
-    if model_name == "logistic_regression":
+def default_cfg() -> dict[str, Any]:
+    return {
+        "experiment": {"target": "is_fraud"},
+        "models": {
+            "logistic_regression": {"dataset": "log", "params": {"solver": "lbfgs", "max_iter": 1000}},
+            "xgboost": {"dataset": "tree", "params": {"eval_metric": "logloss", "n_jobs": -1}},
+            "lightgbm": {"dataset": "tree", "params": {"n_jobs": -1}},
+            "catboost": {"dataset": "tree", "params": {"verbose": False}},
+        },
+    }
+
+
+def drop_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    SMOTE / sklearn cannot handle datetime64 columns.
+    Drop all datetime-like columns to avoid DTypePromotionError.
+    """
+    df = df.copy()
+
+    dt_cols = df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]).columns.tolist()
+    if dt_cols:
+        logger.warning(f"Dropping datetime columns before SMOTE/training: {dt_cols}")
+        df = df.drop(columns=dt_cols)
+
+    # Also: sometimes timestamp was read as object; try best-effort parse then drop if it becomes datetime
+    if "timestamp" in df.columns and df["timestamp"].dtype == "object":
+        parsed = pd.to_datetime(df["timestamp"], errors="coerce")
+        if parsed.notna().any():
+            logger.warning("Dropping 'timestamp' column (parsed as datetime) before SMOTE/training.")
+            df = df.drop(columns=["timestamp"])
+
+    return df
+
+
+# =====================
+# MODEL
+# =====================
+def build_model(name: str, params: dict[str, Any]):
+    if name == "logistic_regression":
         return LogisticRegression(**params)
-    if model_name == "xgboost":
+    if name == "xgboost":
         return XGBClassifier(**params)
-    if model_name == "lightgbm":
+    if name == "lightgbm":
         return LGBMClassifier(**params)
-    if model_name == "catboost":
+    if name == "catboost":
         return CatBoostClassifier(**params)
+    raise ValueError(f"Unknown model: {name}")
 
-    raise ValueError(f"Unsupported model: {model_name}")
 
+def suggest_params(trial: optuna.Trial, name: str, base: dict[str, Any]) -> dict[str, Any]:
+    params = dict(base)
 
-def suggest_params(
-    trial: optuna.Trial,
-    model_name: str,
-    baseline_params: dict[str, Any],
-) -> dict[str, Any]:
-    params = dict(baseline_params)
-
-    if model_name == "logistic_regression":
+    if name == "logistic_regression":
         params.update(
             {
                 "C": trial.suggest_float("C", 0.01, 10.0, log=True),
                 "max_iter": trial.suggest_int("max_iter", 200, 1000),
             }
         )
-        return params
-
-    if model_name == "xgboost":
+    elif name == "xgboost":
         params.update(
             {
                 "n_estimators": trial.suggest_int("n_estimators", 150, 500),
                 "max_depth": trial.suggest_int("max_depth", 3, 10),
                 "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
-                "gamma": trial.suggest_float("gamma", 0.0, 5.0),
             }
         )
-        return params
-
-    if model_name == "lightgbm":
+    elif name == "lightgbm":
         params.update(
             {
                 "n_estimators": trial.suggest_int("n_estimators", 150, 500),
                 "num_leaves": trial.suggest_int("num_leaves", 20, 120),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
-                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                "min_child_samples": trial.suggest_int("min_child_samples", 5, 50),
             }
         )
-        return params
-
-    if model_name == "catboost":
+    elif name == "catboost":
         params.update(
             {
                 "iterations": trial.suggest_int("iterations", 150, 500),
                 "depth": trial.suggest_int("depth", 4, 10),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
             }
         )
-        return params
 
-    raise ValueError(f"No tuning space defined for model: {model_name}")
+    return params
 
 
-def compute_metrics(y_true: pd.Series, y_pred: np.ndarray, y_score: np.ndarray) -> dict[str, float]:
+# =====================
+# METRICS
+# =====================
+def compute_metrics(y_true, y_pred, y_score) -> dict[str, float]:
     return {
-        "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
-        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
-        "f1_score": float(f1_score(y_true, y_pred, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_true, y_score)),
-        "pr_auc": float(average_precision_score(y_true, y_score)),
+        "accuracy": accuracy_score(y_true, y_pred),
+        "f1": f1_score(y_true, y_pred),
+        "roc_auc": roc_auc_score(y_true, y_score),
+        "pr_auc": average_precision_score(y_true, y_score),
     }
 
 
-def main(args: argparse.Namespace) -> None:
-    cfg = load_yaml(args.config)
-    best_model_info = load_json(args.best_model_json)
+# =====================
+# MAIN
+# =====================
+def main() -> None:
+    args = parse_args()
 
-    experiment_cfg = cfg["experiment"]
-    target = experiment_cfg["target"]
-    experiment_name = experiment_cfg["name"]
-    random_state = int(experiment_cfg.get("random_state", 42))
+    # ---- config (optional) ----
+    if args.config and Path(args.config).exists():
+        cfg = load_yaml(args.config)
+    else:
+        if args.config:
+            logger.warning(f"Config not found at '{args.config}', using default config.")
+        cfg = default_cfg()
 
-    resampling_cfg = cfg.get("resampling", {})
-    use_smote = bool(resampling_cfg.get("use_smote", False))
-    smote_random_state = int(resampling_cfg.get("random_state", 42))
+    target = cfg.get("experiment", {}).get("target", "is_fraud")
 
-    model_name = best_model_info["best_model_name"]
-    if model_name not in cfg["models"]:
-        raise ValueError(f"Model '{model_name}' not found in config file")
+    # ---- best model name (optional) ----
+    best_model_name = "logistic_regression"
+    if Path(args.best_model_json).exists():
+        info = load_json(args.best_model_json)
+        best_model_name = info.get("best_model_name", best_model_name)
+    else:
+        logger.warning(f"best-model-json not found at '{args.best_model_json}', using {best_model_name}.")
 
-    model_cfg = cfg["models"][model_name]
-    dataset_branch = model_cfg["dataset"]
-    baseline_params = model_cfg["params"]
+    if best_model_name not in cfg["models"]:
+        logger.warning(f"Model '{best_model_name}' not in cfg['models'], falling back to logistic_regression.")
+        best_model_name = "logistic_regression"
 
-    if args.mlflow_tracking_uri and args.mlflow_tracking_uri.strip():
-        mlflow.set_tracking_uri(args.mlflow_tracking_uri)
+    model_cfg = cfg["models"][best_model_name]
+    dataset_branch = model_cfg.get("dataset", "log")
+    base_params = model_cfg.get("params", {})
 
-    mlflow.set_experiment(f"{experiment_name}-tuning")
+    # ---- fe_params (required) ----
+    fe_params_path = Path(args.fe_params)
+    if not fe_params_path.exists():
+        raise FileNotFoundError(
+            f"Missing required file: {args.fe_params}\n"
+            f"Tip: run FeatureEngineering.py first to create models/trained/fe_params.pkl "
+            f"or pass --fe-params with correct path."
+        )
+    fe_params = joblib.load(fe_params_path)
 
+    # ---- load data ----
     train_log = load_table(args.train_log)
     test_log = load_table(args.test_log)
     train_tree = load_table(args.train_tree)
     test_tree = load_table(args.test_tree)
 
-    x_train_log, y_train_log = split_xy(train_log, target)
-    x_test_log, y_test_log = split_xy(test_log, target)
-
-    x_train_tree, y_train_tree = split_xy(train_tree, target)
-    x_test_tree, y_test_tree = split_xy(test_tree, target)
-
     if dataset_branch == "log":
-        x_train, y_train, x_test, y_test = x_train_log, y_train_log, x_test_log, y_test_log
-    elif dataset_branch == "tree":
-        x_train, y_train, x_test, y_test = x_train_tree, y_train_tree, x_test_tree, y_test_tree
+        train, test = train_log, test_log
     else:
-        raise ValueError(f"Unsupported dataset branch: {dataset_branch}")
+        train, test = train_tree, test_tree
 
-    x_fit, y_fit = maybe_apply_smote(x_train, y_train, use_smote, smote_random_state)
-    cv = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=random_state)
+    x_train, y_train = split_xy(train, target)
+    x_test, y_test = split_xy(test, target)
+
+    # ✅ FIX: drop datetime columns before SMOTE/training
+    x_train = drop_datetime_columns(x_train)
+    x_test = drop_datetime_columns(x_test)
+
+    # SMOTE
+    x_train, y_train = maybe_smote(x_train, y_train, True, 42)
+
+    cv = StratifiedKFold(n_splits=args.cv, shuffle=True, random_state=42)
 
     def objective(trial: optuna.Trial) -> float:
-        params = suggest_params(trial, model_name, baseline_params)
-        model = build_model(model_name, params)
-
-        scores = cross_val_score(
-            model,
-            x_fit,
-            y_fit,
-            cv=cv,
-            scoring="average_precision",
-            n_jobs=1,
-        )
-        mean_score = float(np.mean(scores))
-
-        with mlflow.start_run(run_name=f"optuna_trial_{trial.number}", nested=True):
-            mlflow.log_param("selected_model", model_name)
-            mlflow.log_param("dataset_branch", dataset_branch)
-            mlflow.log_param("use_smote", use_smote)
-            mlflow.log_param("trial_number", trial.number)
-            mlflow.log_params(params)
-            mlflow.log_metric("cv_average_precision", mean_score)
-
-        return mean_score
-
-    with mlflow.start_run(run_name=f"tune_{model_name}"):
-        mlflow.log_param("selected_model", model_name)
-        mlflow.log_param("dataset_branch", dataset_branch)
-        mlflow.log_param("use_smote", use_smote)
-        mlflow.log_param("n_trials", args.n_trials)
-        mlflow.log_param("cv", args.cv)
-
-        study = optuna.create_study(direction="maximize")
-        study.optimize(objective, n_trials=args.n_trials)
-
-        best_params = suggest_params(
-            trial=optuna.trial.FixedTrial(study.best_params),
-            model_name=model_name,
-            baseline_params=baseline_params,
+        params = suggest_params(trial, best_model_name, base_params)
+        model = build_model(best_model_name, params)
+        return float(
+            cross_val_score(
+                model,
+                x_train,
+                y_train,
+                cv=cv,
+                scoring="average_precision",
+            ).mean()
         )
 
-        best_model = build_model(model_name, best_params)
-        best_model.fit(x_fit, y_fit)
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=args.n_trials)
 
-        y_pred = best_model.predict(x_test)
-        y_score = best_model.predict_proba(x_test)[:, 1]
-        metrics = compute_metrics(y_test, y_pred, y_score)
+    best_params = suggest_params(
+        optuna.trial.FixedTrial(study.best_params),
+        best_model_name,
+        base_params,
+    )
 
-        mlflow.log_metric("best_cv_average_precision", float(study.best_value))
-        mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
-        mlflow.log_metrics(metrics)
+    model = build_model(best_model_name, best_params)
+    model.fit(x_train, y_train)
 
-        models_dir = Path(args.models_dir) / "trained"
-        models_dir.mkdir(parents=True, exist_ok=True)
+    y_pred = model.predict(x_test)
+    y_score = model.predict_proba(x_test)[:, 1]
 
-        final_model_path = models_dir / "trained_model.pkl"
-        joblib.dump(best_model, final_model_path)
+    metrics = compute_metrics(y_test, y_pred, y_score)
+    logger.info(f"Metrics: {metrics}")
 
-        meta = {
-            "selected_model": model_name,
-            "dataset_branch": dataset_branch,
-            "use_smote": use_smote,
-            "n_trials": args.n_trials,
-            "best_params": best_params,
-            "best_cv_average_precision": float(study.best_value),
-            "test_metrics": metrics,
-            "mlflow_run_id": mlflow.active_run().info.run_id,
-        }
+    # ---- save (match your screenshot) ----
+    trained_dir = Path(args.models_dir) / "trained"
+    artifact_dir = Path(args.models_dir) / "artifacts"
+    trained_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        meta_path = models_dir / "trained_model_meta.json"
-        with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=2)
+    model_path = trained_dir / "fraud_model.pkl"
+    joblib.dump(model, model_path)
 
-        mlflow.log_artifact(str(final_model_path), artifact_path="models")
-        mlflow.log_artifact(str(meta_path), artifact_path="reports")
+    joblib.dump(fe_params, trained_dir / "fe_params.pkl")
+    joblib.dump(x_train.columns.tolist(), trained_dir / "model_columns.pkl")
 
-        logger.info("Selected model : %s", model_name)
-        logger.info("Best params    : %s", best_params)
-        logger.info("Best CV score  : %.6f", study.best_value)
-        logger.info("Test PR-AUC    : %.6f", metrics["pr_auc"])
-        logger.info("Saved model to : %s", final_model_path)
-        logger.info("Loaded best model name from JSON: %s", args.best_model_json)
+    # encoder/scaler artifacts (optional)
+    if dataset_branch == "log":
+        cat_cols = x_train.select_dtypes(include=["object"]).columns.tolist()
+        num_cols = [c for c in x_train.columns if c not in cat_cols]
+
+        encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+        scaler = StandardScaler()
+
+        if cat_cols:
+            encoder.fit(x_train[cat_cols])
+            joblib.dump(encoder, artifact_dir / "onehot_encoder.pkl")
+
+        if num_cols:
+            scaler.fit(x_train[num_cols])
+            joblib.dump(scaler, artifact_dir / "scaler.pkl")
+    else:
+        # ✅ Fit label encoders based on known categorical columns, not dtype=object
+        cate_cols = [
+            "merchant_category",
+            "merchant_country",
+            "device_type",
+            "mcc_code",
+            "hour_of_day",
+            "day_of_week",
+        ]
+        cate_cols = [c for c in cate_cols if c in x_train.columns]
+
+        encoders: dict[str, LabelEncoder] = {}
+        for col in cate_cols:
+            le = LabelEncoder()
+            le.fit(x_train[col].astype(str))
+            encoders[col] = le
+
+        joblib.dump(encoders, artifact_dir / "label_encoders.pkl")
+
+    meta = {
+        "selected_model": best_model_name,
+        "dataset_branch": dataset_branch,
+        "best_params": best_params,
+        "metrics": metrics,
+        "model_path": str(model_path),
+        "target": target,
+    }
+
+    with open(trained_dir / "trained_model_meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
+
+    logger.info("Training complete. Artifacts saved.")
+    logger.info(f"Saved model to: {model_path}")
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    main()
