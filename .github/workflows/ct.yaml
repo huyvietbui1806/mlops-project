@@ -51,7 +51,7 @@ jobs:
 
       - name: Pull latest data from S3     
         run: |
-          uv run dvc pull
+          uv run dvc pull --allow-missing
       
       # - name: Check AWS identity
       #   run: |
