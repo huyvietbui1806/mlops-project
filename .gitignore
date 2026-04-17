@@ -1,13 +1,19 @@
 # Virtual environments
-. venv /
-venv /
-env /
+.venv/
+venv/
+env/
+
 # Jupyter artifacts
-. ipynb_checkpoints /
+.ipynb_checkpoints/
+
 # ML model files
-*. pkl
-*. pt
-*. h5
-mlruns /
-# OS - specific
-. DS_Storedata/csv/transactions.csv
+*.pkl
+*.pt
+*.h5
+mlruns/
+
+# OS-specific
+.DS_Store
+
+# Data
+data/csv/transactions.csv
