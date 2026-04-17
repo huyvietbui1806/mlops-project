@@ -2006,6 +2006,7 @@ dependencies = [
     { name = "catboost" },
     { name = "dvc" },
     { name = "dvc-s3" },
+    { name = "fastapi" },
     { name = "gdown" },
     { name = "imbalanced-learn" },
     { name = "ipykernel" },
@@ -2017,9 +2018,11 @@ dependencies = [
     { name = "optuna" },
     { name = "pandas" },
     { name = "pyarrow" },
+    { name = "pydantic" },
     { name = "pyyaml" },
     { name = "scikit-learn" },
     { name = "seaborn" },
+    { name = "uvicorn" },
     { name = "xgboost" },
 ]
 
@@ -2030,6 +2033,7 @@ requires-dist = [
     { name = "catboost", specifier = ">=1.2,<2" },
     { name = "dvc", specifier = ">=3.67.1" },
     { name = "dvc-s3", specifier = ">=3.3.0" },
+    { name = "fastapi", specifier = "==0.135.3" },
     { name = "gdown", specifier = ">=5.2.1" },
     { name = "imbalanced-learn", specifier = ">=0.12,<1" },
     { name = "ipykernel", specifier = ">=7.2.0" },
@@ -2041,9 +2045,11 @@ requires-dist = [
     { name = "optuna", specifier = ">=3.6,<5" },
     { name = "pandas", specifier = ">=2.2,<3" },
     { name = "pyarrow", specifier = ">=15,<22" },
+    { name = "pydantic", specifier = "==2.13.0" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "scikit-learn", specifier = ">=1.5,<2" },
     { name = "seaborn", specifier = ">=0.13.2" },
+    { name = "uvicorn", specifier = "==0.44.0" },
     { name = "xgboost", specifier = ">=2.0,<4" },
 ]
 
