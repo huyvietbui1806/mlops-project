@@ -65,6 +65,23 @@ def load_table(path: str) -> pd.DataFrame:
         return pd.read_parquet(p)
     raise ValueError(f"Unsupported file format: {p.suffix}")
 
+def drop_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Hàm này loại bỏ tất cả các cột kiểu datetime trong dataframe.
+    """
+    df = df.copy()
+    dt_cols = df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]).columns.tolist()
+    if dt_cols:
+        logger.warning(f"Dropping datetime columns before SMOTE/training: {dt_cols}")
+        df = df.drop(columns=dt_cols)
+
+    if "timestamp" in df.columns and df["timestamp"].dtype == "object":
+        parsed = pd.to_datetime(df["timestamp"], errors="coerce")
+        if parsed.notna().any():
+            logger.warning("Dropping 'timestamp' column (parsed as datetime) before SMOTE/training.")
+            df = df.drop(columns=["timestamp"])
+
+    return df
 
 def split_xy(df: pd.DataFrame, target: str) -> tuple[pd.DataFrame, pd.Series]:
     if target not in df.columns:
@@ -337,8 +354,16 @@ def main(args: argparse.Namespace) -> None:
     x_train_log, y_train_log = split_xy(train_log, target)
     x_test_log, y_test_log = split_xy(test_log, target)
 
+    # Loại bỏ cột datetime trước khi huấn luyện
+    x_train_log = drop_datetime_columns(x_train_log)
+    x_test_log = drop_datetime_columns(x_test_log)
+
     x_train_tree, y_train_tree = split_xy(train_tree, target)
     x_test_tree, y_test_tree = split_xy(test_tree, target)
+
+    # Loại bỏ cột datetime trong cây
+    x_train_tree = drop_datetime_columns(x_train_tree)
+    x_test_tree = drop_datetime_columns(x_test_tree)
 
     results: list[dict[str, Any]] = []
 
