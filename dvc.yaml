@@ -8,10 +8,14 @@ stages:
     params:
       - data
     outs:
-      - ${data.train_log_path}
-      - ${data.test_log_path}
-      - ${data.train_tree_path}
-      - ${data.test_tree_path}
+      - ${data.train_log_path}:
+          cache: false
+      - ${data.test_log_path}:
+          cache: false
+      - ${data.train_tree_path}:
+          cache: false
+      - ${data.test_tree_path}:
+          cache: false
 
   train_models:
     cmd: uv run python src/model/train_models.py --config configs/model_config.yaml --train-log ${data.train_log_path} --test-log ${data.test_log_path} --train-tree ${data.train_tree_path} --test-tree ${data.test_tree_path} --reports-dir ${paths.reports_dir} --mlflow-tracking-uri ${mlflow.tracking_uri}
