@@ -4,23 +4,23 @@
   "use_smote": false,
   "n_trials": 2,
   "best_params": {
-    "iterations": 497,
-    "depth": 8,
-    "learning_rate": 0.04313801817492473,
+    "iterations": 359,
+    "depth": 7,
+    "learning_rate": 0.022747999802375404,
     "loss_function": "Logloss",
     "eval_metric": "AUC",
     "random_seed": 42,
     "verbose": 0,
-    "l2_leaf_reg": 2.1210392216586236
+    "l2_leaf_reg": 5.182433066950543
   },
-  "best_cv_average_precision": 0.8693263157844104,
+  "best_cv_average_precision": 0.8671785501739766,
   "test_metrics": {
-    "accuracy": 0.9933719120501403,
-    "precision": 0.878213232195533,
-    "recall": 0.7191166321601105,
-    "f1_score": 0.7907417947258585,
-    "roc_auc": 0.9951495365350496,
-    "pr_auc": 0.8758925922498167
+    "accuracy": 0.9932998022990992,
+    "precision": 0.8837709857942316,
+    "recall": 0.7084195997239475,
+    "f1_score": 0.7864393794292281,
+    "roc_auc": 0.9948894928142943,
+    "pr_auc": 0.8726302171551501
   },
-  "mlflow_run_id": "14f06732913d443b96e3aef341ca098d"
+  "mlflow_run_id": "094b7b571eb9409a9a34ce9154bb8c3d"
 }
