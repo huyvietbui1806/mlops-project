@@ -95,11 +95,11 @@ stages:
     outs:
     - path: reports/training/baseline_leaderboard.csv
       hash: md5
-      md5: 1d9c29f6cc82055a298be43ef242acf7
+      md5: 0a5501918ab6ca48092c439c9f969281
       size: 1745
     - path: reports/training/best_model.json
       hash: md5
-      md5: 27e4ff804bdfb7229dc4653a48386bb3
+      md5: e7d903d8a6b2f73455544db675912c43
       size: 333
   tune_model:
     cmd: uv run python src/model/tune_model.py --config 
@@ -133,7 +133,7 @@ stages:
       size: 15294541
     - path: reports/training/best_model.json
       hash: md5
-      md5: 27e4ff804bdfb7229dc4653a48386bb3
+      md5: e7d903d8a6b2f73455544db675912c43
       size: 333
     - path: src/model/tune_model.py
       hash: md5
@@ -159,9 +159,9 @@ stages:
     outs:
     - path: models/trained/trained_model.pkl
       hash: md5
-      md5: 6edf97c91a7885cb4301e3cda2ea0be4
-      size: 130588
+      md5: 6fb7dc0fa4148a9fc8a38d056a2d2366
+      size: 120779
     - path: models/trained/trained_model_meta.json
       hash: md5
-      md5: ff263717e3c8f497b9ebb6d842f29b5f
-      size: 685
+      md5: e059bbb32bc42f4a4350034f88b7250a
+      size: 679
