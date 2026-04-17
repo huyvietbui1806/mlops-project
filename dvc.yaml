@@ -1,6 +1,6 @@
 stages:
   feature_engineering:
-    cmd: uv run python src/features/engineering.py --train-input ${data.train_path} --test-input ${data.test_path} --train-log-output ${data.train_log_path} --test-log-output ${data.test_log_path} --train-tree-output ${data.train_tree_path} --test-tree-output ${data.test_tree_path}
+    cmd: uv run python src/features/FeatureEngineering.py --train-input ${data.train_path} --test-input ${data.test_path} --train-log-output ${data.train_log_path} --test-log-output ${data.test_log_path} --train-tree-output ${data.train_tree_path} --test-tree-output ${data.test_tree_path}
     deps:
       - src/features/FeatureEngineering.py
       - ${data.train_path}
