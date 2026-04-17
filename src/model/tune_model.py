@@ -345,7 +345,7 @@ def main() -> None:
         trained_dir.mkdir(parents=True, exist_ok=True)
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        model_path = trained_dir / "fraud_model.pkl"
+        model_path = trained_dir / "trained_model.pkl"
         joblib.dump(model, model_path)
 
         joblib.dump(fe_params, trained_dir / "fe_params.pkl")
