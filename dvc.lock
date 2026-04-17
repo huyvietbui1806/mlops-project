@@ -6,7 +6,8 @@ stages:
       data/processed/train_log.parquet --test-log-output 
       data/processed/test_log.parquet --train-tree-output 
       data/processed/train_tree.parquet --test-tree-output 
-      data/processed/test_tree.parquet
+      data/processed/test_tree.parquet --fe-params-output 
+      models/trained/fe_params.pkl
     deps:
     - path: data/raw/test.csv
       hash: md5
@@ -46,6 +47,10 @@ stages:
       hash: md5
       md5: b9eee69529b0ab887dca08284e3390fb
       size: 20270322
+    - path: models/trained/fe_params.pkl
+      hash: md5
+      md5: eb9d33ffd3c809a7ef67f91116ccd0ef
+      size: 257
   train_models:
     cmd: uv run python src/model/train_models.py --config 
       configs/model_config.yaml --train-log data/processed/train_log.parquet 
@@ -95,11 +100,11 @@ stages:
     outs:
     - path: reports/training/baseline_leaderboard.csv
       hash: md5
-      md5: 451f031bea9cad870e89b71137d70f87
+      md5: 0bfa8dddd37a0f022060486395308c7e
       size: 1745
     - path: reports/training/best_model.json
       hash: md5
-      md5: c8d47e8f0ecd0710a055f19d0ee5781d
+      md5: e6b0349a9ed36676ac5e5f3db186fc61
       size: 333
   tune_model:
     cmd: uv run python src/model/tune_model.py --config 
@@ -108,8 +113,9 @@ stages:
       data/processed/train_log.parquet --test-log 
       data/processed/test_log.parquet --train-tree 
       data/processed/train_tree.parquet --test-tree 
-      data/processed/test_tree.parquet --models-dir models --mlflow-tracking-uri
-      http://localhost:5555 --n-trials 2 --cv 2
+      data/processed/test_tree.parquet --models-dir models --fe-params 
+      models/trained/fe_params.pkl --mlflow-tracking-uri http://localhost:5555 
+      --n-trials 2 --cv 2
     deps:
     - path: configs/model_config.yaml
       hash: md5
@@ -131,9 +137,13 @@ stages:
       hash: md5
       md5: b9eee69529b0ab887dca08284e3390fb
       size: 20270322
+    - path: models/trained/fe_params.pkl
+      hash: md5
+      md5: eb9d33ffd3c809a7ef67f91116ccd0ef
+      size: 257
     - path: reports/training/best_model.json
       hash: md5
-      md5: c8d47e8f0ecd0710a055f19d0ee5781d
+      md5: e6b0349a9ed36676ac5e5f3db186fc61
       size: 333
     - path: src/model/tune_model.py
       hash: md5
@@ -159,9 +169,9 @@ stages:
     outs:
     - path: models/trained/trained_model.pkl
       hash: md5
-      md5: 9b2d8217b88808da40c98a9bc13f64c7
-      size: 229443
+      md5: e62e375e2863fe9bf42dc6e00cfafad4
+      size: 460443
     - path: models/trained/trained_model_meta.json
       hash: md5
-      md5: 330174daf54224ad5506450efc7d15fa
-      size: 661
+      md5: 92d012e39625ab6cdb5d11a92ffc2c03
+      size: 663
