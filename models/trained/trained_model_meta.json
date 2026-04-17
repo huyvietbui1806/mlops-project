@@ -1,26 +1,25 @@
 {
   "selected_model": "catboost",
   "dataset_branch": "tree",
-  "use_smote": false,
-  "n_trials": 2,
   "best_params": {
-    "iterations": 359,
-    "depth": 7,
-    "learning_rate": 0.022747999802375404,
+    "iterations": 198,
+    "depth": 6,
+    "learning_rate": 0.04737756673007667,
     "loss_function": "Logloss",
     "eval_metric": "AUC",
     "random_seed": 42,
     "verbose": 0,
-    "l2_leaf_reg": 5.182433066950543
+    "l2_leaf_reg": 7.264523801330196
   },
-  "best_cv_average_precision": 0.8671785501739766,
-  "test_metrics": {
-    "accuracy": 0.9932998022990992,
-    "precision": 0.8837709857942316,
-    "recall": 0.7084195997239475,
-    "f1_score": 0.7864393794292281,
-    "roc_auc": 0.9948894928142943,
-    "pr_auc": 0.8726302171551501
+  "best_cv_average_precision": 0.8669401943278855,
+  "metrics": {
+    "accuracy": 0.9933118205909394,
+    "f1": 0.7860849509898136,
+    "roc_auc": 0.9949066917522145,
+    "pr_auc": 0.8724827971200928
   },
-  "mlflow_run_id": "094b7b571eb9409a9a34ce9154bb8c3d"
+  "model_path": "models/trained/trained_model.pkl",
+  "target": "is_fraud",
+  "use_smote": false,
+  "mlflow_run_id": "4d50b8fff2a64dd9b97da89529be3a5b"
 }
