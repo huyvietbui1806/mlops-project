@@ -45,7 +45,7 @@ stages:
           cache: false
 
   tune_model:
-    cmd: uv run python src/model/tune_model.py --config configs/model_config.yaml --best-model-json ${paths.reports_dir}/best_model.json --train-log ${data.train_log_path} --valid-log ${data.valid_log_path} --test-log ${data.test_log_path} --train-tree ${data.train_tree_path} --valid-tree ${data.valid_tree_path} --test-tree ${data.test_tree_path} --models-dir ${paths.models_dir} --fe-params ${paths.models_dir}/trained/fe_params.pkl --mlflow-tracking-uri ${mlflow.tracking_uri} --n-trials ${tune.n_trials} --cv ${tune.cv} --precision-floor ${tune.precision_floor} --threshold-step ${tune.threshold_step}
+    cmd: uv run python src/model/tune_model.py --config configs/model_config.yaml --best-model-json ${paths.reports_dir}/best_model.json --train-log ${data.train_log_path} --valid-log ${data.valid_log_path} --test-log ${data.test_log_path} --train-tree ${data.train_tree_path} --valid-tree ${data.valid_tree_path} --test-tree ${data.test_tree_path} --models-dir ${paths.models_dir} --fe-params ${paths.models_dir}/trained/fe_params.pkl --mlflow-tracking-uri ${mlflow.tracking_uri} --n-trials ${tune.n_trials} --precision-floor ${tune.precision_floor} --threshold-step ${tune.threshold_step}
     deps:
       - src/model/tune_model.py
       - configs/model_config.yaml
