@@ -18,6 +18,8 @@ spec:
         app: fraud-api
 
     spec:
+      imagePullSecrets:
+        - name: dockerhub-secret 
       containers:
         - name: fraud-api
           image: IMAGE_PLACEHOLDER
