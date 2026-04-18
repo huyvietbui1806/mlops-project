@@ -57,7 +57,3 @@ models:
       eval_metric: AUC
       random_seed: 42
       verbose: 0
-
-stacking:
-  enabled: true
-  dataset: tree

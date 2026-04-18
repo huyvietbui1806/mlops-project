@@ -2,24 +2,61 @@
   "selected_model": "catboost",
   "dataset_branch": "tree",
   "best_params": {
-    "iterations": 339,
-    "depth": 9,
-    "learning_rate": 0.01656148017133593,
+    "iterations": 465,
+    "depth": 7,
+    "learning_rate": 0.013998074964225345,
     "loss_function": "Logloss",
     "eval_metric": "AUC",
     "random_seed": 42,
     "verbose": 0,
-    "l2_leaf_reg": 3.6903227700564782
+    "l2_leaf_reg": 4.569115882567889
   },
-  "best_cv_average_precision": 0.8645462975223533,
-  "metrics": {
-    "accuracy": 0.9932937931531791,
-    "f1": 0.786042944785276,
-    "roc_auc": 0.9948338273438085,
-    "pr_auc": 0.8719627429105159
+  "best_valid_pr_auc": 0.8562337199997081,
+  "threshold": 0.17,
+  "threshold_search": {
+    "precision_floor": 0.65,
+    "step": 0.01,
+    "found_threshold_meeting_precision_floor": true
   },
-  "model_path": "models/trained/trained_model.pkl",
+  "metrics_default_threshold_on_valid": {
+    "accuracy": 0.9927786994152398,
+    "precision": 0.872163807415606,
+    "recall": 0.683138274815778,
+    "f1": 0.766164316966456,
+    "roc_auc": 0.994148674923563,
+    "pr_auc": 0.8562337199997081
+  },
+  "metrics_threshold_selected_on_valid": {
+    "threshold": 0.17,
+    "accuracy": 0.9895658962444733,
+    "precision": 0.6521739130434783,
+    "recall": 0.8517555266579974,
+    "f1": 0.7387218045112782,
+    "roc_auc": 0.994148674923563,
+    "pr_auc": 0.8562337199997081
+  },
+  "metrics_default_threshold_on_test": {
+    "accuracy": 0.9931796193806974,
+    "precision": 0.8844308765808984,
+    "recall": 0.6997929606625258,
+    "f1": 0.7813523405894818,
+    "roc_auc": 0.9947107167130859,
+    "pr_auc": 0.8690800789995405
+  },
+  "metrics_threshold_selected_on_test": {
+    "threshold": 0.17,
+    "accuracy": 0.9896041775582436,
+    "precision": 0.6544156530936013,
+    "recall": 0.8540372670807453,
+    "f1": 0.7410179640718563,
+    "roc_auc": 0.9947107167130859,
+    "pr_auc": 0.8690800789995405
+  },
+  "model_path": "models\\trained\\trained_model.pkl",
   "target": "is_fraud",
   "use_smote": false,
-  "mlflow_run_id": "a5829ad902bf49e0b9cc1b1c529632d6"
+  "fit_split": "train",
+  "tuning_split": "valid",
+  "final_metrics_split": "test",
+  "mlflow_run_id": "8b8d17b616004c7bbe48bc200f631a75"
 }

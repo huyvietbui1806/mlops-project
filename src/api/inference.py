@@ -20,16 +20,26 @@ MODELS_DIR = PROJECT_ROOT / "models"
 TRAINED_DIR = MODELS_DIR / "trained"
 ARTIFACT_DIR = MODELS_DIR / "artifacts"
 
-BEST_MODEL_JSON = PROJECT_ROOT / "reports" / "training" / "best_model.json"
 META_PATH = TRAINED_DIR / "trained_model_meta.json"
 MODEL_PATH = TRAINED_DIR / "trained_model.pkl"
 FE_PARAMS_PATH = TRAINED_DIR / "fe_params.pkl"
 COLUMNS_PATH = TRAINED_DIR / "model_columns.pkl"
 
-THRESHOLD = 0.65
+# fallback nếu meta chưa có threshold
+DEFAULT_THRESHOLD = 0.65
 
 # Các field identifier — không được đưa vào model
 _ID_COLS = {"transaction_id", "user_id"}
+
+# Khớp với FeatureEngineering.py
+CATE_COLS = [
+    "merchant_category",
+    "merchant_country",
+    "device_type",
+    "mcc_code",
+    "hour_of_day",
+    "day_of_week",
+]
 
 
 # =====================
@@ -38,6 +48,13 @@ _ID_COLS = {"transaction_id", "user_id"}
 def _load_json(path: Path) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+def _load_threshold_from_meta(meta: dict, default: float = DEFAULT_THRESHOLD) -> float:
+    value = meta.get("threshold", default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
 
 
 def load_artifacts() -> dict:
@@ -69,7 +86,11 @@ def load_artifacts() -> dict:
         scaler_path = ARTIFACT_DIR / "scaler.pkl"
         missing_art = [p for p in [enc_path, scaler_path] if not p.exists()]
         if missing_art:
-            raise RuntimeError(f"Log-branch artifacts missing: {[str(p) for p in missing_art]}")
+            raise RuntimeError(
+                "Log-branch artifacts missing.\n"
+                f"Missing: {[str(p) for p in missing_art]}\n"
+                "Fix: update FeatureEngineering.py to save onehot_encoder.pkl and scaler.pkl into models/artifacts."
+            )
         artifacts["encoder"] = joblib.load(enc_path)
         artifacts["scaler"] = joblib.load(scaler_path)
 
@@ -79,7 +100,7 @@ def load_artifacts() -> dict:
             raise RuntimeError(
                 "Tree-branch artifact missing: label_encoders.pkl\n"
                 f"Expected at: {le_path}\n"
-                "Fix: re-run tune_model.py with a tree model (xgboost/lightgbm/catboost) so it saves label_encoders.pkl."
+                "Fix: update FeatureEngineering.py to save label_encoders.pkl into models/artifacts."
             )
         artifacts["label_encoders"] = joblib.load(le_path)
 
@@ -98,6 +119,7 @@ _meta = ARTIFACTS["meta"]
 _model = ARTIFACTS["model"]
 _fe_params = ARTIFACTS["fe_params"]
 _model_columns = ARTIFACTS["model_columns"]
+THRESHOLD = _load_threshold_from_meta(_meta, default=DEFAULT_THRESHOLD)
 
 
 # =====================
@@ -144,14 +166,19 @@ def _drop_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
 # BRANCH PREPROCESS
 # =====================
 def _preprocess_log(df: pd.DataFrame) -> pd.DataFrame:
-    """OneHot encode + StandardScaler cho logistic branch."""
+    """OneHot encode + StandardScaler cho logistic branch, bám đúng CATE_COLS từ FE."""
+    df = df.copy()
+
     encoder = ARTIFACTS["encoder"]
     scaler = ARTIFACTS["scaler"]
 
-    cat_cols = df.select_dtypes(include=["object"]).columns.tolist()
+    cat_cols = [c for c in CATE_COLS if c in df.columns]
     num_cols = [c for c in df.columns if c not in cat_cols]
 
     if cat_cols:
+        for col in cat_cols:
+            df[col] = df[col].astype(str)
+
         encoded_arr = encoder.transform(df[cat_cols])
         feature_names = encoder.get_feature_names_out(cat_cols)
         encoded_df = pd.DataFrame(encoded_arr, columns=feature_names, index=df.index)
@@ -179,7 +206,6 @@ def _preprocess_tree(df: pd.DataFrame) -> pd.DataFrame:
 
         df[col] = df[col].astype(str)
 
-        # ensure UNKNOWN exists
         known = set(le.classes_)
         if "UNKNOWN" not in known:
             le.classes_ = np.append(le.classes_, "UNKNOWN")

@@ -1,6 +1,6 @@
 stages:
   feature_engineering:
-    cmd: uv run python src/features/FeatureEngineering.py --train-input ${data.train_path} --test-input ${data.test_path} --train-log-output ${data.train_log_path} --test-log-output ${data.test_log_path} --train-tree-output ${data.train_tree_path} --test-tree-output ${data.test_tree_path} --fe-params-output ${paths.models_dir}/trained/fe_params.pkl
+    cmd: uv run python src/features/FeatureEngineering.py --train-input ${data.train_path} --test-input ${data.test_path} --valid-size ${data.valid_size} --train-log-output ${data.train_log_path} --test-log-output ${data.test_log_path} --valid-log-output ${data.valid_log_path} --train-tree-output ${data.train_tree_path} --test-tree-output ${data.test_tree_path} --valid-tree-output ${data.valid_tree_path} --fe-params-output ${paths.models_dir}/trained/fe_params.pkl --onehot-encoder-output ${paths.models_dir}/artifacts/onehot_encoder.pkl --scaler-output ${paths.models_dir}/artifacts/scaler.pkl --label-encoders-output ${paths.models_dir}/artifacts/label_encoders.pkl
     deps:
       - src/features/FeatureEngineering.py
       - ${data.train_path}
@@ -10,23 +10,30 @@ stages:
     outs:
       - ${data.train_log_path}:
           cache: false
+      - ${data.valid_log_path}:
+          cache: false
       - ${data.test_log_path}:
           cache: false
       - ${data.train_tree_path}:
           cache: false
+      - ${data.valid_tree_path}:
+          cache: false
       - ${data.test_tree_path}:
           cache: false
       - ${paths.models_dir}/trained/fe_params.pkl
+      - ${paths.models_dir}/artifacts/onehot_encoder.pkl
+      - ${paths.models_dir}/artifacts/scaler.pkl
+      - ${paths.models_dir}/artifacts/label_encoders.pkl
 
   train_models:
-    cmd: uv run python src/model/train_models.py --config configs/model_config.yaml --train-log ${data.train_log_path} --test-log ${data.test_log_path} --train-tree ${data.train_tree_path} --test-tree ${data.test_tree_path} --reports-dir ${paths.reports_dir} --mlflow-tracking-uri ${mlflow.tracking_uri}
+    cmd: uv run python src/model/train_models.py --config configs/model_config.yaml --train-log ${data.train_log_path} --valid-log ${data.valid_log_path} --train-tree ${data.train_tree_path} --valid-tree ${data.valid_tree_path} --reports-dir ${paths.reports_dir} --mlflow-tracking-uri ${mlflow.tracking_uri}
     deps:
       - src/model/train_models.py
       - configs/model_config.yaml
       - ${data.train_log_path}
-      - ${data.test_log_path}
+      - ${data.valid_log_path}
       - ${data.train_tree_path}
-      - ${data.test_tree_path}
+      - ${data.valid_tree_path}
     params:
       - data
       - paths
@@ -38,15 +45,17 @@ stages:
           cache: false
 
   tune_model:
-    cmd: uv run python src/model/tune_model.py --config configs/model_config.yaml --best-model-json ${paths.reports_dir}/best_model.json --train-log ${data.train_log_path} --test-log ${data.test_log_path} --train-tree ${data.train_tree_path} --test-tree ${data.test_tree_path} --models-dir ${paths.models_dir} --fe-params ${paths.models_dir}/trained/fe_params.pkl --mlflow-tracking-uri ${mlflow.tracking_uri} --n-trials ${tune.n_trials} --cv ${tune.cv}
+    cmd: uv run python src/model/tune_model.py --config configs/model_config.yaml --best-model-json ${paths.reports_dir}/best_model.json --train-log ${data.train_log_path} --valid-log ${data.valid_log_path} --test-log ${data.test_log_path} --train-tree ${data.train_tree_path} --valid-tree ${data.valid_tree_path} --test-tree ${data.test_tree_path} --models-dir ${paths.models_dir} --fe-params ${paths.models_dir}/trained/fe_params.pkl --mlflow-tracking-uri ${mlflow.tracking_uri} --n-trials ${tune.n_trials} --cv ${tune.cv} --precision-floor ${tune.precision_floor} --threshold-step ${tune.threshold_step}
     deps:
       - src/model/tune_model.py
       - configs/model_config.yaml
       - ${paths.models_dir}/trained/fe_params.pkl
       - ${paths.reports_dir}/best_model.json
       - ${data.train_log_path}
+      - ${data.valid_log_path}
       - ${data.test_log_path}
       - ${data.train_tree_path}
+      - ${data.valid_tree_path}
       - ${data.test_tree_path}
     params:
       - data
@@ -55,7 +64,6 @@ stages:
       - tune
     outs:
       - ${paths.models_dir}/trained/trained_model.pkl
+      - ${paths.models_dir}/trained/model_columns.pkl
       - ${paths.models_dir}/trained/trained_model_meta.json:
           cache: false
-      - ${paths.models_dir}/trained/model_columns.pkl
-      - ${paths.models_dir}/artifacts

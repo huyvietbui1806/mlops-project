@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from pathlib import Path
 from typing import Any
-import json
 
 import matplotlib.pyplot as plt
 import mlflow
@@ -14,7 +14,6 @@ import yaml
 from catboost import CatBoostClassifier
 from imblearn.over_sampling import SMOTE
 from lightgbm import LGBMClassifier
-from sklearn.ensemble import StackingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
@@ -38,14 +37,47 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train baseline models and select best model family.")
-    parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--train-log", type=str, required=True)
-    parser.add_argument("--test-log", type=str, required=True)
-    parser.add_argument("--train-tree", type=str, required=True)
-    parser.add_argument("--test-tree", type=str, required=True)
-    parser.add_argument("--reports-dir", type=str, default="reports/training")
-    parser.add_argument("--mlflow-tracking-uri", type=str, default=None)
+    parser = argparse.ArgumentParser(description="Train baseline models on train split and evaluate on valid split.")
+
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="configs/model_config.yaml",
+    )
+
+    parser.add_argument(
+        "--train-log",
+        type=str,
+        default="data/processed/train_log.parquet",
+    )
+    parser.add_argument(
+        "--valid-log",
+        type=str,
+        default="data/processed/valid_log.parquet",
+    )
+
+    parser.add_argument(
+        "--train-tree",
+        type=str,
+        default="data/processed/train_tree.parquet",
+    )
+    parser.add_argument(
+        "--valid-tree",
+        type=str,
+        default="data/processed/valid_tree.parquet",
+    )
+
+    parser.add_argument(
+        "--reports-dir",
+        type=str,
+        default="reports/training",
+    )
+    parser.add_argument(
+        "--mlflow-tracking-uri",
+        type=str,
+        default="http://localhost:5555",
+    )
+
     return parser.parse_args()
 
 
@@ -63,25 +95,18 @@ def load_table(path: str) -> pd.DataFrame:
         return pd.read_csv(p)
     if p.suffix.lower() == ".parquet":
         return pd.read_parquet(p)
+
     raise ValueError(f"Unsupported file format: {p.suffix}")
 
+
 def drop_datetime_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Hàm này loại bỏ tất cả các cột kiểu datetime trong dataframe.
-    """
     df = df.copy()
     dt_cols = df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, UTC]"]).columns.tolist()
     if dt_cols:
-        logger.warning(f"Dropping datetime columns before SMOTE/training: {dt_cols}")
+        logger.warning("Dropping datetime columns before training: %s", dt_cols)
         df = df.drop(columns=dt_cols)
-
-    if "timestamp" in df.columns and df["timestamp"].dtype == "object":
-        parsed = pd.to_datetime(df["timestamp"], errors="coerce")
-        if parsed.notna().any():
-            logger.warning("Dropping 'timestamp' column (parsed as datetime) before SMOTE/training.")
-            df = df.drop(columns=["timestamp"])
-
     return df
+
 
 def split_xy(df: pd.DataFrame, target: str) -> tuple[pd.DataFrame, pd.Series]:
     if target not in df.columns:
@@ -117,63 +142,6 @@ def get_model_instance(model_name: str, params: dict[str, Any]) -> Any:
     if model_name not in model_map:
         raise ValueError(f"Unsupported model: {model_name}")
     return model_map[model_name](**params)
-
-
-def build_stacking_model(random_state: int = 42) -> StackingClassifier:
-    estimators = [
-        (
-            "xgb",
-            XGBClassifier(
-                n_estimators=300,
-                max_depth=6,
-                learning_rate=0.05,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                objective="binary:logistic",
-                eval_metric="logloss",
-                random_state=random_state,
-                n_jobs=-1,
-            ),
-        ),
-        (
-            "lgbm",
-            LGBMClassifier(
-                n_estimators=300,
-                learning_rate=0.05,
-                objective="binary",
-                random_state=random_state,
-                n_jobs=-1,
-            ),
-        ),
-        (
-            "cat",
-            CatBoostClassifier(
-                iterations=300,
-                depth=6,
-                learning_rate=0.05,
-                loss_function="Logloss",
-                eval_metric="AUC",
-                random_seed=random_state,
-                verbose=0,
-            ),
-        ),
-    ]
-
-    final_estimator = LogisticRegression(
-        max_iter=300,
-        solver="liblinear",
-        class_weight="balanced",
-        random_state=random_state,
-    )
-
-    return StackingClassifier(
-        estimators=estimators,
-        final_estimator=final_estimator,
-        stack_method="predict_proba",
-        cv=5,
-        passthrough=False,
-        n_jobs=-1,
-    )
 
 
 def compute_metrics(y_true: pd.Series, y_pred: np.ndarray, y_score: np.ndarray) -> dict[str, float]:
@@ -259,8 +227,8 @@ def train_and_log(
     model: Any,
     x_train: pd.DataFrame,
     y_train: pd.Series,
-    x_test: pd.DataFrame,
-    y_test: pd.Series,
+    x_valid: pd.DataFrame,
+    y_valid: pd.Series,
     selection_metric: str,
     use_smote: bool,
     smote_random_state: int,
@@ -270,13 +238,13 @@ def train_and_log(
     with mlflow.start_run(run_name=model_name):
         model.fit(x_fit, y_fit)
 
-        y_pred = model.predict(x_test)
-        y_score = model.predict_proba(x_test)[:, 1]
+        y_pred = model.predict(x_valid)
+        y_score = model.predict_proba(x_valid)[:, 1]
 
         y_pred = np.array(y_pred).reshape(-1).astype(int)
         y_score = np.array(y_score).reshape(-1)
 
-        metrics = compute_metrics(y_test, y_pred, y_score)
+        metrics = compute_metrics(y_valid, y_pred, y_score)
 
         if hasattr(model, "get_params"):
             try:
@@ -284,23 +252,27 @@ def train_and_log(
             except Exception:
                 pass
 
+        mlflow.log_param("evaluation_split", "valid")
         mlflow.log_param("use_smote", use_smote)
         mlflow.log_metrics(metrics)
 
         log_confusion_matrix(
-            y_test, y_pred,
-            artifact_path=f"plots/{model_name}/confusion_matrix.png",
-            title=f"Confusion Matrix - {display_name}",
+            y_valid,
+            y_pred,
+            artifact_path=f"plots/{model_name}/valid_confusion_matrix.png",
+            title=f"Valid Confusion Matrix - {display_name}",
         )
         log_pr_curve(
-            y_test, y_score,
-            artifact_path=f"plots/{model_name}/pr_curve.png",
-            title=f"PR Curve - {display_name}",
+            y_valid,
+            y_score,
+            artifact_path=f"plots/{model_name}/valid_pr_curve.png",
+            title=f"Valid PR Curve - {display_name}",
         )
         log_roc_curve(
-            y_test, y_score,
-            artifact_path=f"plots/{model_name}/roc_curve.png",
-            title=f"ROC Curve - {display_name}",
+            y_valid,
+            y_score,
+            artifact_path=f"plots/{model_name}/valid_roc_curve.png",
+            title=f"Valid ROC Curve - {display_name}",
         )
 
         importance_df = build_feature_importance_df(model, x_train.columns.tolist())
@@ -333,7 +305,6 @@ def main(args: argparse.Namespace) -> None:
     target = experiment_cfg["target"]
     experiment_name = experiment_cfg["name"]
     selection_metric = experiment_cfg["selection_metric"]
-    random_state = experiment_cfg.get("random_state", 42)
 
     resampling_cfg = cfg.get("resampling", {})
     use_smote = bool(resampling_cfg.get("use_smote", False))
@@ -347,23 +318,21 @@ def main(args: argparse.Namespace) -> None:
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     train_log = load_table(args.train_log)
-    test_log = load_table(args.test_log)
+    valid_log = load_table(args.valid_log)
     train_tree = load_table(args.train_tree)
-    test_tree = load_table(args.test_tree)
+    valid_tree = load_table(args.valid_tree)
 
     x_train_log, y_train_log = split_xy(train_log, target)
-    x_test_log, y_test_log = split_xy(test_log, target)
-
-    # Loại bỏ cột datetime trước khi huấn luyện
-    x_train_log = drop_datetime_columns(x_train_log)
-    x_test_log = drop_datetime_columns(x_test_log)
+    x_valid_log, y_valid_log = split_xy(valid_log, target)
 
     x_train_tree, y_train_tree = split_xy(train_tree, target)
-    x_test_tree, y_test_tree = split_xy(test_tree, target)
+    x_valid_tree, y_valid_tree = split_xy(valid_tree, target)
 
-    # Loại bỏ cột datetime trong cây
+    x_train_log = drop_datetime_columns(x_train_log)
+    x_valid_log = drop_datetime_columns(x_valid_log)
+
     x_train_tree = drop_datetime_columns(x_train_tree)
-    x_test_tree = drop_datetime_columns(x_test_tree)
+    x_valid_tree = drop_datetime_columns(x_valid_tree)
 
     results: list[dict[str, Any]] = []
 
@@ -376,9 +345,9 @@ def main(args: argparse.Namespace) -> None:
         model = get_model_instance(model_name, params)
 
         if dataset_branch == "log":
-            x_train, y_train, x_test, y_test = x_train_log, y_train_log, x_test_log, y_test_log
+            x_train, y_train, x_valid, y_valid = x_train_log, y_train_log, x_valid_log, y_valid_log
         elif dataset_branch == "tree":
-            x_train, y_train, x_test, y_test = x_train_tree, y_train_tree, x_test_tree, y_test_tree
+            x_train, y_train, x_valid, y_valid = x_train_tree, y_train_tree, x_valid_tree, y_valid_tree
         else:
             raise ValueError(f"Unsupported dataset branch: {dataset_branch}")
 
@@ -389,8 +358,8 @@ def main(args: argparse.Namespace) -> None:
             model=model,
             x_train=x_train,
             y_train=y_train,
-            x_test=x_test,
-            y_test=y_test,
+            x_valid=x_valid,
+            y_valid=y_valid,
             selection_metric=selection_metric,
             use_smote=use_smote,
             smote_random_state=smote_random_state,
@@ -399,34 +368,15 @@ def main(args: argparse.Namespace) -> None:
         result["baseline_params"] = params
         results.append(result)
 
-    if cfg.get("stacking", {}).get("enabled", False):
-        stacking_dataset = cfg["stacking"].get("dataset", "tree")
-        if stacking_dataset != "tree":
-            raise ValueError("Stacking currently supports only tree dataset branch.")
-
-        stacking_model = build_stacking_model(random_state=random_state)
-        result = train_and_log(
-            model_name="stacking",
-            display_name="Stacking Ensemble",
-            model=stacking_model,
-            x_train=x_train_tree,
-            y_train=y_train_tree,
-            x_test=x_test_tree,
-            y_test=y_test_tree,
-            selection_metric=selection_metric,
-            use_smote=use_smote,
-            smote_random_state=smote_random_state,
-        )
-        result["dataset"] = "tree"
-        result["baseline_params"] = {"type": "stacking"}
-        results.append(result)
+    if not results:
+        raise ValueError("No enabled models found in config['models'].")
 
     leaderboard = pd.DataFrame(results).sort_values(
         by="selection_score",
         ascending=False,
     ).reset_index(drop=True)
 
-    logger.info("\n=== Leaderboard ===")
+    logger.info("\n=== Valid Leaderboard ===")
     logger.info(
         "\n%s",
         leaderboard[["model_name", "dataset", "use_smote", "pr_auc", "roc_auc", "f1_score", "precision", "recall"]],
@@ -435,49 +385,43 @@ def main(args: argparse.Namespace) -> None:
     best = leaderboard.iloc[0].to_dict()
 
     best_model_info = {
-    "best_model_name": best["model_name"],
-    "dataset": best["dataset"],
-    "use_smote": bool(best["use_smote"]),
-    "selection_score": float(best["selection_score"]),
-    "pr_auc": float(best["pr_auc"]),
-    "roc_auc": float(best["roc_auc"]),
-    "f1_score": float(best["f1_score"]),
-    "precision": float(best["precision"]),
-    "recall": float(best["recall"]),
-    "run_id": best["run_id"],
-}
+        "best_model_name": best["model_name"],
+        "dataset": best["dataset"],
+        "use_smote": bool(best["use_smote"]),
+        "selection_score": float(best["selection_score"]),
+        "pr_auc": float(best["pr_auc"]),
+        "roc_auc": float(best["roc_auc"]),
+        "f1_score": float(best["f1_score"]),
+        "precision": float(best["precision"]),
+        "recall": float(best["recall"]),
+        "run_id": best["run_id"],
+        "evaluation_split": "valid",
+    }
 
     best_model_json_path = reports_dir / "best_model.json"
     with open(best_model_json_path, "w", encoding="utf-8") as f:
         json.dump(best_model_info, f, ensure_ascii=False, indent=2)
 
-    logger.info("Saved best model info to: %s", best_model_json_path)
-
-    logger.info("\n=== Best Model Family ===")
-    logger.info("model_name      : %s", best["model_name"])
-    logger.info("dataset         : %s", best["dataset"])
-    logger.info("use_smote       : %s", best["use_smote"])
-    logger.info("%s : %.6f", selection_metric, best["selection_score"])
-    logger.info("run_id          : %s", best["run_id"])
-
     leaderboard_path = reports_dir / "baseline_leaderboard.csv"
     leaderboard.to_csv(leaderboard_path, index=False)
+
+    logger.info("Saved best model info to: %s", best_model_json_path)
     logger.info("Saved leaderboard to: %s", leaderboard_path)
 
     print("\nCOPY THIS FOR TUNING:")
     print(
         "python src/models/tune_model.py `\n"
         f"  --config {args.config} `\n"
-        f"  --best-model-json {reports_dir / 'best_model.json'} `\n"
+        f"  --best-model-json {best_model_json_path} `\n"
         f"  --train-log {args.train_log} `\n"
-        f"  --test-log {args.test_log} `\n"
+        f"  --valid-log {args.valid_log} `\n"
         f"  --train-tree {args.train_tree} `\n"
-        f"  --test-tree {args.test_tree} `\n"
+        f"  --valid-tree {args.valid_tree} `\n"
         "  --models-dir models `\n"
         f"  --mlflow-tracking-uri {args.mlflow_tracking_uri or 'http://localhost:5555'} `\n"
-        "  --n-trials 10 `\n"
-        "  --cv 3"
+        "  --n-trials 2"
     )
+
 
 if __name__ == "__main__":
     args = parse_args()
