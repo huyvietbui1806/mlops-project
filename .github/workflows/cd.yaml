@@ -18,10 +18,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION:    ap-southeast-1
       S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}
-      IMAGE_NAME:            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}
-
-    outputs:
-      image_tag: ${{ steps.vars.outputs.IMAGE_TAG }}
+      IMAGE_NAME:            ${{ secrets.TEST_DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKERHUB_REPO }}
 
     steps:
       - name: Checkout code
@@ -48,7 +45,6 @@ jobs:
       - name: Sync environment
         run: uv sync
 
-      # Pull file .pkl từ S3 về để Dockerfile có thể COPY vào image
       - name: Pull model artifacts from S3
         run: uv run dvc pull
 
@@ -61,8 +57,8 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.TEST_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.TEST_DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -76,54 +72,3 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.IMAGE_TAG }}
             ${{ env.IMAGE_NAME }}:latest
-          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
-          cache-to:   type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
-
-      - name: Output image info
-        run: |
-          echo "✅ Image pushed:"
-          echo "   ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.IMAGE_TAG }}"
-          echo "   ${{ env.IMAGE_NAME }}:latest"
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-
-    env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}
-
-    steps:
-      - name: Deploy to AWS EC2 via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host:     ${{ secrets.EC2_HOST }}        # Public IP của EC2
-          username: ${{ secrets.EC2_USER }}        # ubuntu
-          key:      ${{ secrets.EC2_SSH_KEY }}     # Nội dung file .pem (private key)
-          port:     22
-          script: |
-            set -e
-
-            echo "🔐 Đăng nhập Docker Hub..."
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" \
-              | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            echo "📦 Pull image mới nhất..."
-            docker pull ${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
-
-            echo "🛑 Dừng và xoá container cũ nếu tồn tại..."
-            docker stop api-container 2>/dev/null || true
-            docker rm   api-container 2>/dev/null || true
-
-            echo "🚀 Khởi động container mới..."
-            docker run -d \
-              --name api-container \
-              --restart unless-stopped \
-              -p 8000:8000 \
-              -p 9100:9100 \
-              ${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
-
-            echo "🧹 Dọn image cũ không dùng..."
-            docker image prune -f
-
-            echo "✅ Deploy thành công!"
-            docker ps --filter "name=api-container" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
