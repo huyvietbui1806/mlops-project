@@ -2,7 +2,7 @@ name: CD Pipeline
 
 on:
   workflow_run:
-    workflows: ["CT Pipeline"]   # Phải khớp với `name:` trong ct.yaml
+    workflows: ["CT Pipeline"]
     types:
       - completed
     branches: [main]
@@ -50,7 +50,7 @@ jobs:
 
       # Pull file .pkl từ S3 về để Dockerfile có thể COPY vào image
       - name: Pull model artifacts from S3
-        run: uv run dvc pull models/trained
+        run: uv run dvc pull
 
       - name: Set image tag
         id: vars
