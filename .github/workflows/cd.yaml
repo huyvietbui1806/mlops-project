@@ -1,0 +1,131 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CT Pipeline"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ── Job 1: Build & Push image (vẫn chạy trên GitHub-hosted) ──────────────
+  build-and-push:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    env:
+      AWS_ACCESS_KEY_ID:     ${{ secrets.LOCAL_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION:    ap-southeast-1
+      S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}
+      IMAGE_NAME:            ${{ secrets.TEST_DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKERHUB_REPO }}
+
+    # Expose IMAGE_TAG ra ngoài để job deploy dùng
+    outputs:
+      image_tag: ${{ steps.vars.outputs.IMAGE_TAG }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Sync environment
+        run: uv sync
+
+      - name: Pull model artifacts from S3
+        run: uv run dvc pull
+
+      - name: Set image tag
+        id: vars
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.TEST_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.TEST_DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:latest
+
+  # ── Job 2: Deploy lên Minikube qua self-hosted runner ────────────────────
+  deploy-to-minikube:
+    runs-on: self-hosted        
+    needs: build-and-push       # ← Chờ job 1 xong mới chạy
+
+    env:
+      IMAGE_NAME: ${{ secrets.TEST_DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKERHUB_REPO }}
+      IMAGE_TAG:  ${{ needs.build-and-push.outputs.image_tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Đảm bảo Minikube đang chạy, nếu chưa thì start
+      - name: Ensure Minikube is running
+        run: |
+          if ! minikube status | grep -q "Running"; then
+            echo "Minikube not running, starting..."
+            minikube start --driver=docker
+          else
+            echo "Minikube already running ✅"
+          fi
+
+      # Dùng kubectl context của minikube
+      - name: Set kubectl context to Minikube
+        run: kubectl config use-context minikube
+
+      # Thay image tag đúng SHA vào deployment.yaml rồi apply
+      - name: Render & apply Deployment
+        run: |
+          sed "s|IMAGE_PLACEHOLDER|${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g" \
+            k8s/deployment.yaml | kubectl apply -f -
+
+      - name: Apply Service
+        run: kubectl apply -f k8s/service.yaml
+
+      # Chờ rollout hoàn tất (timeout 3 phút)
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/fraud-api-deployment \
+            --timeout=180s
+
+      # In trạng thái để dễ debug
+      - name: Show cluster status
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -o wide
+          echo "=== Services ==="
+          kubectl get services
+          echo "=== App URL ==="
+          minikube service fraud-api-service --url
