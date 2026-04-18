@@ -109,10 +109,10 @@ jobs:
       - name: Render & apply Deployment
         run: |
           sed "s|IMAGE_PLACEHOLDER|${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g" \
-            k8s/deployment.yaml | kubectl apply -f -
+            deployment/k8s/deployment.yaml | kubectl apply -f -
 
       - name: Apply Service
-        run: kubectl apply -f k8s/service.yaml
+        run: kubectl apply -f deployment/k8s/service.yaml
 
       # Chờ rollout hoàn tất (timeout 3 phút)
       - name: Wait for rollout
