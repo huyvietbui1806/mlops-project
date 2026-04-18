@@ -2,12 +2,17 @@ schema: '2.0'
 stages:
   feature_engineering:
     cmd: uv run python src/features/FeatureEngineering.py --train-input 
-      data/raw/train.csv --test-input data/raw/test.csv --train-log-output 
-      data/processed/train_log.parquet --test-log-output 
-      data/processed/test_log.parquet --train-tree-output 
+      data/raw/train.csv --test-input data/raw/test.csv --valid-size 0.2 
+      --train-log-output data/processed/train_log.parquet --test-log-output 
+      data/processed/test_log.parquet --valid-log-output 
+      data/processed/valid_log.parquet --train-tree-output 
       data/processed/train_tree.parquet --test-tree-output 
-      data/processed/test_tree.parquet --fe-params-output 
-      models/trained/fe_params.pkl
+      data/processed/test_tree.parquet --valid-tree-output 
+      data/processed/valid_tree.parquet --fe-params-output 
+      models/trained/fe_params.pkl --onehot-encoder-output 
+      models/artifacts/onehot_encoder.pkl --scaler-output 
+      models/artifacts/scaler.pkl --label-encoders-output 
+      models/artifacts/label_encoders.pkl
     deps:
     - path: data/raw/test.csv
       hash: md5
@@ -19,78 +24,104 @@ stages:
       size: 84701362
     - path: src/features/FeatureEngineering.py
       hash: md5
-      md5: 1e7b13c7e5af46b04f7d7ee097063fca
-      size: 10820
+      md5: 58fd99fdfe6fb24d626c9e00547b4111
+      size: 14053
     params:
       params.yaml:
         data:
           train_path: data/raw/train.csv
           test_path: data/raw/test.csv
+          valid_size: 0.2
           train_log_path: data/processed/train_log.parquet
+          valid_log_path: data/processed/valid_log.parquet
           test_log_path: data/processed/test_log.parquet
           train_tree_path: data/processed/train_tree.parquet
+          valid_tree_path: data/processed/valid_tree.parquet
           test_tree_path: data/processed/test_tree.parquet
     outs:
     - path: data/processed/test_log.parquet
       hash: md5
-      md5: ef094798798c80b6c36f1fca2f05e7a2
-      size: 6399596
+      md5: 49144ecbf3b27d1781c845ad0df858c7
+      size: 4933461
     - path: data/processed/test_tree.parquet
       hash: md5
-      md5: fa17305d17cd2bbdc95f01f8982f9c6b
-      size: 5964541
+      md5: d81273d1f8cee481493b87cff6772284
+      size: 4498368
     - path: data/processed/train_log.parquet
       hash: md5
-      md5: 31b19a4fc9fbbea0bdab8505f164e6e7
-      size: 21767996
+      md5: 3a3388332bb25173e59bacf5d3fdd754
+      size: 13694288
     - path: data/processed/train_tree.parquet
       hash: md5
-      md5: fbf54dc6bf3f1811f5297fe525f1773e
-      size: 20270322
+      md5: 3d9463df9f5168a076e877bea6054b29
+      size: 12484324
+    - path: data/processed/valid_log.parquet
+      hash: md5
+      md5: 864ac0936c0d1b5c09aa7a99b2111974
+      size: 4112402
+    - path: data/processed/valid_tree.parquet
+      hash: md5
+      md5: dc1de90e6b2ed6beba4290b9f0eacf96
+      size: 3749133
+    - path: models/artifacts/label_encoders.pkl
+      hash: md5
+      md5: 575b5bd849f6ecdd68111065e16c32d8
+      size: 2186
+    - path: models/artifacts/onehot_encoder.pkl
+      hash: md5
+      md5: 158a5af0cd66eb191d890cd994cfc236
+      size: 2539
+    - path: models/artifacts/scaler.pkl
+      hash: md5
+      md5: 4d787a6c5104a82cd2ff0ebe0a003654
+      size: 1671
     - path: models/trained/fe_params.pkl
       hash: md5
-      md5: eb9d33ffd3c809a7ef67f91116ccd0ef
-      size: 257
+      md5: db924eb393a77efbcebef06ca06bfe35
+      size: 143
   train_models:
     cmd: uv run python src/model/train_models.py --config 
       configs/model_config.yaml --train-log data/processed/train_log.parquet 
-      --test-log data/processed/test_log.parquet --train-tree 
-      data/processed/train_tree.parquet --test-tree 
-      data/processed/test_tree.parquet --reports-dir reports/training 
+      --valid-log data/processed/valid_log.parquet --train-tree 
+      data/processed/train_tree.parquet --valid-tree 
+      data/processed/valid_tree.parquet --reports-dir reports/training 
       --mlflow-tracking-uri http://localhost:5555
     deps:
     - path: configs/model_config.yaml
       hash: md5
-      md5: 6630810452b745e117d6e14e3376dca0
-      size: 1134
-    - path: data/processed/test_log.parquet
-      hash: md5
-      md5: ef094798798c80b6c36f1fca2f05e7a2
-      size: 6399596
-    - path: data/processed/test_tree.parquet
-      hash: md5
-      md5: fa17305d17cd2bbdc95f01f8982f9c6b
-      size: 5964541
+      md5: 1e41e200c4605b648ff3fd92135b75c3
+      size: 1092
     - path: data/processed/train_log.parquet
       hash: md5
-      md5: 31b19a4fc9fbbea0bdab8505f164e6e7
-      size: 21767996
+      md5: 3a3388332bb25173e59bacf5d3fdd754
+      size: 13694288
     - path: data/processed/train_tree.parquet
       hash: md5
-      md5: fbf54dc6bf3f1811f5297fe525f1773e
-      size: 20270322
+      md5: 3d9463df9f5168a076e877bea6054b29
+      size: 12484324
+    - path: data/processed/valid_log.parquet
+      hash: md5
+      md5: 864ac0936c0d1b5c09aa7a99b2111974
+      size: 4112402
+    - path: data/processed/valid_tree.parquet
+      hash: md5
+      md5: dc1de90e6b2ed6beba4290b9f0eacf96
+      size: 3749133
     - path: src/model/train_models.py
       hash: md5
-      md5: f0672548f600ad3c42bccf8c2602c6d0
-      size: 16364
+      md5: d29af85d8cac7a43776e9c0a49bf0ee1
+      size: 13761
     params:
       params.yaml:
         data:
           train_path: data/raw/train.csv
           test_path: data/raw/test.csv
+          valid_size: 0.2
           train_log_path: data/processed/train_log.parquet
+          valid_log_path: data/processed/valid_log.parquet
           test_log_path: data/processed/test_log.parquet
           train_tree_path: data/processed/train_tree.parquet
+          valid_tree_path: data/processed/valid_tree.parquet
           test_tree_path: data/processed/test_tree.parquet
         mlflow:
           tracking_uri: http://localhost:5555
@@ -100,63 +131,76 @@ stages:
     outs:
     - path: reports/training/baseline_leaderboard.csv
       hash: md5
-      md5: 7b7e84788c6cddaa976a436ccee85520
-      size: 1745
+      md5: c6db967e47af36440f868bed2a0dd63d
+      size: 1518
     - path: reports/training/best_model.json
       hash: md5
-      md5: 4fccb518b2b5de3dc0a3007de01eeacf
-      size: 333
+      md5: 42a639e0b0473caae60d21037712f6e6
+      size: 362
   tune_model:
     cmd: uv run python src/model/tune_model.py --config 
       configs/model_config.yaml --best-model-json 
       reports/training/best_model.json --train-log 
-      data/processed/train_log.parquet --test-log 
+      data/processed/train_log.parquet --valid-log 
+      data/processed/valid_log.parquet --test-log 
       data/processed/test_log.parquet --train-tree 
-      data/processed/train_tree.parquet --test-tree 
+      data/processed/train_tree.parquet --valid-tree 
+      data/processed/valid_tree.parquet --test-tree 
       data/processed/test_tree.parquet --models-dir models --fe-params 
       models/trained/fe_params.pkl --mlflow-tracking-uri http://localhost:5555 
-      --n-trials 2 --cv 2
+      --n-trials 2 --precision-floor 0.65 --threshold-step 0.01
     deps:
     - path: configs/model_config.yaml
       hash: md5
-      md5: 6630810452b745e117d6e14e3376dca0
-      size: 1134
+      md5: 1e41e200c4605b648ff3fd92135b75c3
+      size: 1092
     - path: data/processed/test_log.parquet
       hash: md5
-      md5: ef094798798c80b6c36f1fca2f05e7a2
-      size: 6399596
+      md5: 49144ecbf3b27d1781c845ad0df858c7
+      size: 4933461
     - path: data/processed/test_tree.parquet
       hash: md5
-      md5: fa17305d17cd2bbdc95f01f8982f9c6b
-      size: 5964541
+      md5: d81273d1f8cee481493b87cff6772284
+      size: 4498368
     - path: data/processed/train_log.parquet
       hash: md5
-      md5: 31b19a4fc9fbbea0bdab8505f164e6e7
-      size: 21767996
+      md5: 3a3388332bb25173e59bacf5d3fdd754
+      size: 13694288
     - path: data/processed/train_tree.parquet
       hash: md5
-      md5: fbf54dc6bf3f1811f5297fe525f1773e
-      size: 20270322
+      md5: 3d9463df9f5168a076e877bea6054b29
+      size: 12484324
+    - path: data/processed/valid_log.parquet
+      hash: md5
+      md5: 864ac0936c0d1b5c09aa7a99b2111974
+      size: 4112402
+    - path: data/processed/valid_tree.parquet
+      hash: md5
+      md5: dc1de90e6b2ed6beba4290b9f0eacf96
+      size: 3749133
     - path: models/trained/fe_params.pkl
       hash: md5
-      md5: eb9d33ffd3c809a7ef67f91116ccd0ef
-      size: 257
+      md5: db924eb393a77efbcebef06ca06bfe35
+      size: 143
     - path: reports/training/best_model.json
       hash: md5
-      md5: 4fccb518b2b5de3dc0a3007de01eeacf
-      size: 333
+      md5: 42a639e0b0473caae60d21037712f6e6
+      size: 362
     - path: src/model/tune_model.py
       hash: md5
-      md5: b6e7f0a27a746ec850de938cc7c97c95
-      size: 15093
+      md5: 29d2a6a85d748ba9680050ab06adb6b2
+      size: 18924
     params:
       params.yaml:
         data:
           train_path: data/raw/train.csv
           test_path: data/raw/test.csv
+          valid_size: 0.2
           train_log_path: data/processed/train_log.parquet
+          valid_log_path: data/processed/valid_log.parquet
           test_log_path: data/processed/test_log.parquet
           train_tree_path: data/processed/train_tree.parquet
+          valid_tree_path: data/processed/valid_tree.parquet
           test_tree_path: data/processed/test_tree.parquet
         mlflow:
           tracking_uri: http://localhost:5555
@@ -165,22 +209,18 @@ stages:
           models_dir: models
         tune:
           n_trials: 2
-          cv: 2
+          precision_floor: 0.65
+          threshold_step: 0.01
     outs:
-    - path: models/artifacts
-      hash: md5
-      md5: 072a6570135e6282498f212b03dc57ed.dir
-      size: 1937
-      nfiles: 1
     - path: models/trained/model_columns.pkl
       hash: md5
       md5: 269d9178036b94cf91e36270c0493f5e
       size: 470
     - path: models/trained/trained_model.pkl
       hash: md5
-      md5: 15b079255b514b28ce3c4aa90ca47ad0
-      size: 2817388
+      md5: e884bbfe0b951316a4ef408d57137aaa
+      size: 511315
     - path: models/trained/trained_model_meta.json
       hash: md5
-      md5: 9630f7e2b160aa40cfb68ee7f05bf2ef
-      size: 661
+      md5: ea1c566f4cb9da2f982de5a9685f0701
+      size: 1777
