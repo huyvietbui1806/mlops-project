@@ -128,5 +128,5 @@ jobs:
           kubectl get pods -o wide
           echo "=== Services ==="
           kubectl get services
-          echo "=== App URL ==="
-          minikube service fraud-api-service --url
+          echo "=== App info ==="
+          echo "Service exposed via NodePort: http://127.0.0.1:30800"
