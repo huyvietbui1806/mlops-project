@@ -2,24 +2,24 @@
   "selected_model": "catboost",
   "dataset_branch": "tree",
   "best_params": {
-    "iterations": 466,
-    "depth": 10,
-    "learning_rate": 0.010333283975715868,
+    "iterations": 339,
+    "depth": 9,
+    "learning_rate": 0.01656148017133593,
     "loss_function": "Logloss",
     "eval_metric": "AUC",
     "random_seed": 42,
     "verbose": 0,
-    "l2_leaf_reg": 2.7724849667648455
+    "l2_leaf_reg": 3.6903227700564782
   },
-  "best_cv_average_precision": 0.8640038052560901,
+  "best_cv_average_precision": 0.8645462975223533,
   "metrics": {
-    "accuracy": 0.9932577382776586,
-    "f1": 0.7845622119815668,
-    "roc_auc": 0.9948007484049252,
-    "pr_auc": 0.8714446082646675
+    "accuracy": 0.9932937931531791,
+    "f1": 0.786042944785276,
+    "roc_auc": 0.9948338273438085,
+    "pr_auc": 0.8719627429105159
   },
   "model_path": "models/trained/trained_model.pkl",
   "target": "is_fraud",
   "use_smote": false,
-  "mlflow_run_id": "3f4d65d6f91245ffbac0abf3e2ffccc9"
+  "mlflow_run_id": "a5829ad902bf49e0b9cc1b1c529632d6"
 }
