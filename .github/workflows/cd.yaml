@@ -69,6 +69,11 @@ jobs:
           username: ${{ secrets.TEST_DOCKERHUB_USERNAME }}
           password: ${{ secrets.TEST_DOCKERHUB_TOKEN }}
 
+      - name: Check model files
+        run: |
+          echo "=== CHECK MODELS ==="
+          ls -lh models/trained
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
