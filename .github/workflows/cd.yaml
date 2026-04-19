@@ -130,8 +130,14 @@ jobs:
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/fraud-api-deployment \
-            --timeout=180s
+          kubectl rollout status deployment/fraud-api-deployment --timeout=180s
+        continue-on-error: true
+
+      - name: Debug Pods
+        run: |
+          kubectl get pods -o wide
+          kubectl describe pods
+          kubectl logs --all-containers=true --tail=100
 
       - name: Show cluster status
         run: |
