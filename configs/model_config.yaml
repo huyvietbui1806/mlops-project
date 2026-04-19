@@ -6,7 +6,7 @@ experiment:
   random_state: 42
 
 resampling:
-  use_smote: false
+  use_smote: true
   random_state: 42
 
 models:
