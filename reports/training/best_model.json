@@ -1,13 +1,13 @@
 {
-  "best_model_name": "catboost",
+  "best_model_name": "lightgbm",
   "dataset": "tree",
-  "use_smote": false,
-  "selection_score": 0.863564309660968,
-  "pr_auc": 0.863564309660968,
-  "roc_auc": 0.9944859426050258,
-  "f1_score": 0.7746883988494727,
-  "precision": 0.8664879356568365,
-  "recall": 0.7004768097095796,
-  "run_id": "0cc7fee26f434c52a1a68866796f21c6",
+  "use_smote": true,
+  "selection_score": 0.8523912915617109,
+  "pr_auc": 0.8523912915617109,
+  "roc_auc": 0.9940147585487165,
+  "f1_score": 0.7760393383996423,
+  "precision": 0.8011075219197047,
+  "recall": 0.7524924143909839,
+  "run_id": "59c40b9431c64f8e95f098792a48c0c5",
   "evaluation_split": "valid"
 }
