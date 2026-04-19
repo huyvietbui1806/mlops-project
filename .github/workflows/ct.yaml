@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
       AWS_ACCESS_KEY_ID:     ${{ secrets.LOCAL_AWS_ACCESS_KEY_ID }}
