@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*
+
 # Copy uv binary từ image chính thức của uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
