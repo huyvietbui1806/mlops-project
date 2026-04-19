@@ -144,7 +144,11 @@ jobs:
         run: |
           kubectl get pods -o wide
           kubectl describe pods
-          kubectl logs --all-containers=true --tail=100
+          POD=$(kubectl get pods -l app=fraud-api --no-headers -o custom-columns=":metadata.name" | head -1)
+          echo "=== LOGS FOR POD: $POD ==="
+          kubectl logs $POD
+          echo "=== PREVIOUS LOGS ==="
+          kubectl logs $POD --previous || true
 
       - name: Show cluster status
         run: |
