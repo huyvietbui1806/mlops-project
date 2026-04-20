@@ -10,6 +10,7 @@ spec:
   selector:
     app: fraud-api
   type: LoadBalancer
+  loadBalancerIP: 136.111.173.2
   ports:
     - name: http
       protocol: TCP

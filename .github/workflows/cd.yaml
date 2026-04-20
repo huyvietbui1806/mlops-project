@@ -132,7 +132,6 @@ jobs:
 
       - name: Apply Service
         run: |
-          kubectl delete service fraud-api-service --ignore-not-found
           kubectl apply -f deployment/k8s/service.yaml
 
       - name: Wait for rollout
