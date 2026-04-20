@@ -65,5 +65,6 @@ stages:
     outs:
       - ${paths.models_dir}/trained/trained_model.pkl
       - ${paths.models_dir}/trained/model_columns.pkl
+      - ${paths.models_dir}/trained/tuning_pr_auc_by_trial.png
       - ${paths.models_dir}/trained/trained_model_meta.json:
           cache: false

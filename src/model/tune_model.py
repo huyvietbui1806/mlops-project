@@ -12,10 +12,15 @@ import numpy as np
 import optuna
 import pandas as pd
 import yaml
+import matplotlib.pyplot as plt
 
 from catboost import CatBoostClassifier
 from imblearn.over_sampling import SMOTE
-from lightgbm import LGBMClassifier
+from lightgbm import (
+    LGBMClassifier,
+    early_stopping as lgb_early_stopping,
+    log_evaluation as lgb_log_evaluation,
+)
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -154,6 +159,48 @@ def build_model(name: str, params: dict[str, Any]):
         return CatBoostClassifier(**params)
     raise ValueError(f"Unknown model: {name}")
 
+def fit_model_with_early_stopping(
+    model_name: str,
+    model,
+    x_fit,
+    y_fit,
+    x_valid,
+    y_valid,
+):
+    if model_name == "lightgbm":
+        model.fit(
+            x_fit,
+            y_fit,
+            eval_set=[(x_valid, y_valid)],
+            eval_metric="average_precision",
+            callbacks=[
+                lgb_early_stopping(stopping_rounds=100, verbose=False),
+                lgb_log_evaluation(period=0),
+            ],
+        )
+        return model
+
+    if model_name == "xgboost":
+        model.fit(
+            x_fit,
+            y_fit,
+            eval_set=[(x_valid, y_valid)],
+            verbose=False,
+        )
+        return model
+
+    if model_name == "catboost":
+        model.fit(
+            x_fit,
+            y_fit,
+            eval_set=(x_valid, y_valid),
+            use_best_model=True,
+            verbose=False,
+        )
+        return model
+
+    model.fit(x_fit, y_fit)
+    return model
 
 def suggest_params(trial: optuna.Trial, name: str, base: dict[str, Any]) -> dict[str, Any]:
     params = dict(base)
@@ -161,34 +208,73 @@ def suggest_params(trial: optuna.Trial, name: str, base: dict[str, Any]) -> dict
     if name == "logistic_regression":
         params.update(
             {
-                "C": trial.suggest_float("C", 0.01, 10.0, log=True),
-                "max_iter": trial.suggest_int("max_iter", 200, 1000),
+                "C": trial.suggest_float("C", 1e-3, 50.0, log=True),
+                "max_iter": trial.suggest_int("max_iter", 300, 2000),
+                "solver": trial.suggest_categorical("solver", ["liblinear", "lbfgs"]),
             }
         )
+
     elif name == "xgboost":
+        max_depth = trial.suggest_int("max_depth", 3, 10)
+
         params.update(
             {
-                "n_estimators": trial.suggest_int("n_estimators", 150, 500),
-                "max_depth": trial.suggest_int("max_depth", 3, 10),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
+                "n_estimators": trial.suggest_int("n_estimators", 300, 2000),
+                "learning_rate": trial.suggest_float("learning_rate", 5e-3, 0.1, log=True),
+                "max_depth": max_depth,
+                "min_child_weight": trial.suggest_float("min_child_weight", 1.0, 15.0),
+                "gamma": trial.suggest_float("gamma", 1e-4, 5.0, log=True),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
+                "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
+                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 20.0, log=True),
+                "eval_metric": "aucpr",
+                "early_stopping_rounds": 100,
             }
         )
+
     elif name == "lightgbm":
+        max_depth = trial.suggest_int("max_depth", 3, 8)
+        max_leaves = min(2 ** max_depth, 128)
+
         params.update(
             {
-                "n_estimators": trial.suggest_int("n_estimators", 150, 500),
-                "num_leaves": trial.suggest_int("num_leaves", 20, 120),
+                "n_estimators": trial.suggest_int("n_estimators", 300, 1500),
+                "learning_rate": trial.suggest_float("learning_rate", 5e-3, 0.08, log=True),
+                "max_depth": max_depth,
+                "num_leaves": trial.suggest_int("num_leaves", 8, max_leaves),
+                "min_child_samples": trial.suggest_int("min_child_samples", 10, 80),
+                "min_split_gain": trial.suggest_float("min_split_gain", 1e-4, 0.1, log=True),
+                "subsample": trial.suggest_float("subsample", 0.7, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.7, 1.0),
+                "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 5.0, log=True),
+                "reg_lambda": trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
+                "verbosity": -1,
             }
         )
+
     elif name == "catboost":
+        depth = trial.suggest_int("depth", 4, 10)
+
         params.update(
             {
-                "iterations": trial.suggest_int("iterations", 150, 500),
-                "depth": trial.suggest_int("depth", 4, 10),
-                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),
-                "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.2, log=True),
+                "iterations": trial.suggest_int("iterations", 300, 2500),
+                "learning_rate": trial.suggest_float("learning_rate", 5e-3, 0.1, log=True),
+                "depth": depth,
+                "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 20.0, log=True),
+                "random_strength": trial.suggest_float("random_strength", 1e-3, 10.0, log=True),
+                "bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 5.0),
+                "border_count": trial.suggest_int("border_count", 32, 255),
+                "loss_function": "Logloss",
+                "eval_metric": "PRAUC",
+                "od_type": "Iter",
+                "od_wait": 100,
+                "verbose": False,
             }
         )
+
+    else:
+        raise ValueError(f"Unsupported model name: {name}")
 
     return params
 
@@ -287,6 +373,25 @@ def find_best_threshold(
         "found": False,
     }
 
+def plot_pr_auc_by_trial(trial_results: list[dict[str, Any]], save_path: Path) -> None:
+    if not trial_results:
+        return
+
+    df = pd.DataFrame(trial_results).sort_values("trial").reset_index(drop=True)
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(df["trial"], df["valid_pr_auc"], marker="o")
+    ax.set_title("Validation PR-AUC by Optuna Trial")
+    ax.set_xlabel("Trial")
+    ax.set_ylabel("PR-AUC")
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(save_path, dpi=150, bbox_inches="tight")
+
+    mlflow.log_figure(fig, "plots/tuning_pr_auc_by_trial.png")
+    plt.close(fig)
 
 # =====================
 # MAIN
@@ -355,18 +460,39 @@ def main() -> None:
     x_valid = drop_datetime_columns(x_valid)
     x_test = drop_datetime_columns(x_test)
 
+    trial_results: list[dict[str, Any]] = []
+
     def objective(trial: optuna.Trial) -> float:
         params = suggest_params(trial, best_model_name, base_params)
         model = build_model(best_model_name, params)
 
         x_fit, y_fit = maybe_smote(x_train, y_train, use_smote, smote_random_state)
-        model.fit(x_fit, y_fit)
+        model = fit_model_with_early_stopping(
+            best_model_name,
+            model,
+            x_fit,
+            y_fit,
+            x_valid,
+            y_valid,
+        )
 
         y_valid_score = model.predict_proba(x_valid)[:, 1]
         y_valid_pred = model.predict(x_valid)
 
         metrics = compute_metrics(y_valid, y_valid_pred, y_valid_score)
         score = float(metrics["pr_auc"])
+
+        trial_results.append(
+            {
+                "trial": trial.number,
+                "valid_pr_auc": score,
+                "accuracy": metrics["accuracy"],
+                "precision": metrics["precision"],
+                "recall": metrics["recall"],
+                "f1": metrics["f1"],
+                "roc_auc": metrics["roc_auc"],
+            }
+        )
 
         with mlflow.start_run(run_name=f"optuna_trial_{trial.number}", nested=True):
             mlflow.log_param("selected_model", best_model_name)
@@ -394,6 +520,16 @@ def main() -> None:
         study = optuna.create_study(direction="maximize")
         study.optimize(objective, n_trials=args.n_trials)
 
+        if trial_results:
+            trial_results_df = pd.DataFrame(trial_results).sort_values("trial").reset_index(drop=True)
+
+            print("\n=== PR-AUC QUA TỪNG TRIAL TUNING ===")
+            print(
+                trial_results_df[
+                    ["trial", "valid_pr_auc", "accuracy", "precision", "recall", "f1", "roc_auc"]
+                ].round(6).to_string(index=False)
+            )
+
         best_params = suggest_params(
             optuna.trial.FixedTrial(study.best_params),
             best_model_name,
@@ -403,7 +539,14 @@ def main() -> None:
         model = build_model(best_model_name, best_params)
 
         x_fit, y_fit = maybe_smote(x_train, y_train, use_smote, smote_random_state)
-        model.fit(x_fit, y_fit)
+        model = fit_model_with_early_stopping(
+            best_model_name,
+            model,
+            x_fit,
+            y_fit,
+            x_valid,
+            y_valid,
+        )
 
         # ----- VALID metrics for threshold tuning -----
         y_valid_pred = model.predict(x_valid)
@@ -457,6 +600,10 @@ def main() -> None:
 
         trained_dir = Path(args.models_dir) / "trained"
         trained_dir.mkdir(parents=True, exist_ok=True)
+
+        plot_path = trained_dir / "tuning_pr_auc_by_trial.png"
+        plot_pr_auc_by_trial(trial_results, plot_path)
+        logger.info("Saved tuning plot to: %s", plot_path)
 
         model_path = trained_dir / "trained_model.pkl"
         joblib.dump(model, model_path)
