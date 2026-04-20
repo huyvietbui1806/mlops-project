@@ -1,0 +1,42 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'api-webhook'
+
+  routes:
+    # Critical alerts — gửi ngay, repeat nhanh hơn
+    - match:
+        severity: critical
+      receiver: 'api-webhook'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Warning alerts — gửi theo batch bình thường
+    - match:
+        severity: warning
+      receiver: 'api-webhook'
+      repeat_interval: 6h
+
+receivers:
+  - name: 'api-webhook'
+    webhook_configs:
+      # Gọi FastAPI endpoint để trigger retraining
+      - url: 'http://api:8000/alert-webhook'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+        max_alerts: 10
+
+inhibit_rules:
+  # Khi API đang down thì suppress các alert khác (drift, performance)
+  # vì chúng cũng sẽ fail
+  - source_match:
+      alertname: 'APIDown'
+    target_match_re:
+      alertname: 'Model.*|FraudRate.*|HighPrediction.*'
+    equal: ['job']

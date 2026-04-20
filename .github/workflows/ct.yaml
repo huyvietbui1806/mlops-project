@@ -11,6 +11,17 @@ on:
       - "configs/**"
       - "params.yaml"
   workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Trigger reason: drift | performance | alert | manual'
+        required: false
+        default: 'manual'
+        type: choice
+        options:
+          - manual
+          - drift
+          - performance
+          - alert
 
 jobs:
   continuous-training:
@@ -28,6 +39,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Log trigger reason
+        run: |
+          echo "CT Pipeline triggered"
+          echo "  Reason : ${{ github.event.inputs.reason || 'scheduled/push' }}"
+          echo "  Trigger: ${{ github.event_name }}"
+          echo "  Ref    : ${{ github.ref }}"
+          echo "  Run ID : ${{ github.run_id }}"
 
       - name: Set up Python
         uses: actions/setup-python@v5

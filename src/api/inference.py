@@ -262,7 +262,14 @@ def _get_risk_level(score: float) -> str:
 # =====================
 # PREDICT — single
 # =====================
-def predict_fraud(request: FraudDetectionRequest) -> FraudResponse:
+def predict_fraud_raw(request: FraudDetectionRequest) -> dict:
+    """
+    Core prediction — trả raw dict thay vì FraudResponse.
+    main.py dùng dict này để log + build response.
+
+    Returns dict với keys:
+      is_fraud, fraud_score, risk_level, triggered_rules, prediction_time
+    """
     df = _build_raw_df(request)
 
     # Feature engineering
@@ -282,19 +289,27 @@ def predict_fraud(request: FraudDetectionRequest) -> FraudResponse:
 
     fraud_score = float(_model.predict_proba(df)[0][1])
 
-    return FraudResponse(
-        is_fraud=fraud_score >= THRESHOLD,
-        fraud_score=round(fraud_score, 4),
-        risk_level=_get_risk_level(fraud_score),
-        triggered_rules=rules_triggered,
-        prediction_time=datetime.now(),
-    )
+    return {
+        "is_fraud": fraud_score >= THRESHOLD,
+        "fraud_score": round(fraud_score, 4),
+        "risk_level": _get_risk_level(fraud_score),
+        "triggered_rules": rules_triggered,
+        "prediction_time": datetime.now(),
+    }
+
+
+def predict_fraud(request: FraudDetectionRequest) -> FraudResponse:
+    """Backward-compatible wrapper — trả FraudResponse."""
+    return FraudResponse(**predict_fraud_raw(request))
 
 
 # =====================
 # PREDICT — batch
 # =====================
-def batch_predict(requests: list[FraudDetectionRequest]) -> list[FraudResponse]:
+def batch_predict_raw(requests: list[FraudDetectionRequest]) -> list[dict]:
+    """
+    Batch prediction — trả list[dict] để main.py log từng item.
+    """
     if not requests:
         return []
 
@@ -312,12 +327,17 @@ def batch_predict(requests: list[FraudDetectionRequest]) -> list[FraudResponse]:
     scores = _model.predict_proba(df)[:, 1]
 
     return [
-        FraudResponse(
-            is_fraud=float(score) >= THRESHOLD,
-            fraud_score=round(float(score), 4),
-            risk_level=_get_risk_level(float(score)),
-            triggered_rules=rules,
-            prediction_time=datetime.now(),
-        )
+        {
+            "is_fraud": float(score) >= THRESHOLD,
+            "fraud_score": round(float(score), 4),
+            "risk_level": _get_risk_level(float(score)),
+            "triggered_rules": rules,
+            "prediction_time": datetime.now(),
+        }
         for score, rules in zip(scores, rules_per_row)
     ]
+
+
+def batch_predict(requests: list[FraudDetectionRequest]) -> list[FraudResponse]:
+    """Backward-compatible wrapper — trả list[FraudResponse]."""
+    return [FraudResponse(**r) for r in batch_predict_raw(requests)]

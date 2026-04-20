@@ -1,0 +1,208 @@
+{
+  "id": null,
+  "uid": "fraud-detection-main",
+  "title": "Fraud Detection — MLOps Dashboard",
+  "description": "Real-time monitoring for Fraud Detection API: predictions, drift, model performance.",
+  "tags": ["mlops", "fraud-detection", "monitoring"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "API Status",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" }, "0": { "text": "DOWN", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "colorMode": "background" },
+      "targets": [{ "expr": "up{job=\"fraud_api\"}", "legendFormat": "API" }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Predictions",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value" },
+      "targets": [{ "expr": "fraud_prediction_total", "legendFormat": "Predictions" }]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Fraud Rate (recent 100)",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 0.5 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "fraud_rate_recent", "legendFormat": "Fraud Rate" }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Drift Score",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 0.5 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "model_drift_score", "legendFormat": "Drift Score" }]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Model F1 Score",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 0.65 }, { "color": "green", "value": 0.8 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "model_f1_score", "legendFormat": "F1" }]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Avg Fraud Score",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [{ "expr": "fraud_score_recent_avg", "legendFormat": "Avg Score" }]
+    },
+
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Request Rate (req/min)",
+      "gridPos": { "x": 0, "y": 3, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }
+      },
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "rate(fraud_prediction_total{endpoint=\"/predict\"}[1m])", "legendFormat": "/predict" },
+        { "expr": "rate(fraud_prediction_total{endpoint=\"/batch\"}[1m])", "legendFormat": "/batch" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Prediction Latency (P50 / P95 / P99)",
+      "gridPos": { "x": 12, "y": 3, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "s", "color": { "mode": "palette-classic" } }
+      },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(fraud_prediction_latency_seconds_bucket[5m]))", "legendFormat": "P50" },
+        { "expr": "histogram_quantile(0.95, rate(fraud_prediction_latency_seconds_bucket[5m]))", "legendFormat": "P95" },
+        { "expr": "histogram_quantile(0.99, rate(fraud_prediction_latency_seconds_bucket[5m]))", "legendFormat": "P99" }
+      ]
+    },
+
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Fraud Rate Timeline",
+      "gridPos": { "x": 0, "y": 11, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Fraud Rate" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
+        ]
+      },
+      "targets": [
+        { "expr": "fraud_rate_recent", "legendFormat": "Fraud Rate" }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Data Drift Score (Evidently)",
+      "gridPos": { "x": 12, "y": 11, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 0.5 }] }
+        }
+      },
+      "options": { "thresholdsStyle": { "mode": "line+area" } },
+      "targets": [
+        { "expr": "model_drift_score", "legendFormat": "Drift Score" },
+        { "expr": "model_drifted_features_count", "legendFormat": "Drifted Features Count" }
+      ]
+    },
+
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Model Performance Metrics",
+      "gridPos": { "x": 0, "y": 18, "w": 16, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 }
+      },
+      "targets": [
+        { "expr": "model_f1_score", "legendFormat": "F1" },
+        { "expr": "model_precision", "legendFormat": "Precision" },
+        { "expr": "model_recall", "legendFormat": "Recall" },
+        { "expr": "model_roc_auc", "legendFormat": "ROC-AUC" }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "Retraining Triggered (total)",
+      "gridPos": { "x": 16, "y": 18, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "value" },
+      "targets": [{ "expr": "retraining_triggered_total", "legendFormat": "{{reason}}" }]
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Labeled Samples",
+      "gridPos": { "x": 16, "y": 22, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [{ "expr": "model_labeled_samples_count", "legendFormat": "Labeled Samples" }]
+    }
+  ]
+}

@@ -17,3 +17,17 @@ mlruns/
 
 # Data
 data/csv/transactions.csv
+
+# Monitoring logs (prediction JSONL files — có thể lớn)
+logs/
+
+# Drift reports HTML (lớn, generated)
+reports/drift/
+
+# Grafana & Prometheus persistent volumes (Docker)
+deployment/monitoring/grafana/data/
+deployment/monitoring/prometheus/data/
+deployment/monitoring/alertmanager/data/
+
+# Environment file (chứa secrets)
+deployment/monitoring/.env
