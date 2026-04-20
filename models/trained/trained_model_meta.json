@@ -2,61 +2,61 @@
   "selected_model": "lightgbm",
   "dataset_branch": "tree",
   "best_params": {
-    "n_estimators": 975,
-    "max_depth": 3,
-    "learning_rate": 0.024852010408358747,
-    "subsample": 0.8099737489924274,
-    "colsample_bytree": 0.9576192494733159,
+    "n_estimators": 1479,
+    "max_depth": 4,
+    "learning_rate": 0.026764315607928375,
+    "subsample": 0.8732298798057508,
+    "colsample_bytree": 0.9141154558005118,
     "objective": "binary",
     "random_state": 42,
     "n_jobs": -1,
     "num_leaves": 8,
-    "min_child_samples": 45,
-    "min_split_gain": 0.08958294628724565,
-    "reg_alpha": 0.08386613495531628,
-    "reg_lambda": 0.0002535538908969423,
+    "min_child_samples": 39,
+    "min_split_gain": 0.004179360639237134,
+    "reg_alpha": 0.0014563504957478047,
+    "reg_lambda": 0.2852837920297071,
     "verbosity": -1
   },
-  "best_valid_pr_auc": 0.835535871461526,
-  "threshold": 0.35,
+  "best_valid_pr_auc": 0.851998870634766,
+  "threshold": 0.25,
   "threshold_search": {
     "precision_floor": 0.65,
     "step": 0.01,
     "found_threshold_meeting_precision_floor": true
   },
   "metrics_default_threshold_on_valid": {
-    "accuracy": 0.9914125074127176,
-    "precision": 0.7425949103045474,
-    "recall": 0.7715648027741656,
-    "f1": 0.7568027210884354,
-    "roc_auc": 0.992927123420045,
-    "pr_auc": 0.835535871461526
+    "accuracy": 0.9923883588430906,
+    "precision": 0.7956104252400549,
+    "recall": 0.7542262678803641,
+    "f1": 0.774365821094793,
+    "roc_auc": 0.9938843553099033,
+    "pr_auc": 0.851998870634766
   },
   "metrics_threshold_selected_on_valid": {
-    "threshold": 0.35,
-    "accuracy": 0.989468311101436,
-    "precision": 0.655433287482806,
-    "recall": 0.8261811876896402,
-    "f1": 0.7309683604985618,
-    "roc_auc": 0.992927123420045,
-    "pr_auc": 0.835535871461526
+    "threshold": 0.25,
+    "accuracy": 0.9896484682885818,
+    "precision": 0.6556002682763246,
+    "recall": 0.847420892934547,
+    "f1": 0.7392701833995085,
+    "roc_auc": 0.9938843553099033,
+    "pr_auc": 0.851998870634766
   },
   "metrics_default_threshold_on_test": {
-    "accuracy": 0.9914129304801909,
-    "precision": 0.7444259567387688,
-    "recall": 0.771911663216011,
-    "f1": 0.7579197018465187,
-    "roc_auc": 0.9937463965323396,
-    "pr_auc": 0.8503294285244851
+    "accuracy": 0.9925967322264486,
+    "precision": 0.8067010309278351,
+    "recall": 0.7560386473429952,
+    "f1": 0.7805486284289277,
+    "roc_auc": 0.9946267246973604,
+    "pr_auc": 0.8642272172059096
   },
   "metrics_threshold_selected_on_test": {
-    "threshold": 0.35,
-    "accuracy": 0.9892376196571181,
-    "precision": 0.6506122448979592,
-    "recall": 0.8250517598343685,
-    "f1": 0.7275216795983569,
-    "roc_auc": 0.9937463965323396,
-    "pr_auc": 0.8503294285244851
+    "threshold": 0.25,
+    "accuracy": 0.989496012931682,
+    "precision": 0.6549865229110512,
+    "recall": 0.8385093167701864,
+    "f1": 0.7354721549636803,
+    "roc_auc": 0.9946267246973604,
+    "pr_auc": 0.8642272172059096
   },
   "model_path": "models/trained/trained_model.pkl",
   "target": "is_fraud",
@@ -64,5 +64,5 @@
   "fit_split": "train",
   "tuning_split": "valid",
   "final_metrics_split": "test",
-  "mlflow_run_id": "a87cd7b6dbaa45b6bf030d7018c8c0ba"
+  "mlflow_run_id": "0050c36eda824dd489afec39df545820"
 }
