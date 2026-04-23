@@ -3,3 +3,7 @@
 ['remote "storage"']
     url = s3://mlops-data-storage/dvc-storage/
     region = ap-southeast-1
+['remote "storage_model"']
+    url = s3://mlops-data-storage/mlflow-artifacts
+['remote "storage_prediction"']
+    url = s3://mlops-data-storage/predictions
