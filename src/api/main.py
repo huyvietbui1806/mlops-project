@@ -4,11 +4,13 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from src.api.inference import predict_fraud, batch_predict, ARTIFACTS
 from src.api.schemas import FraudDetectionRequest, FraudResponse, BatchFraudResponse
 from src.api.logger import get_logger
+
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 import os
 
@@ -30,6 +32,13 @@ from src.api.feedback_store import (
     save_feedback_record,
 )
 
+from src.monitoring.metrics import (
+    HTTP_REQUESTS_TOTAL,
+    HTTP_REQUEST_DURATION_SECONDS,
+    PREDICTIONS_TOTAL,
+    POSITIVE_PREDICTIONS_TOTAL,
+    FEEDBACK_TOTAL,
+)
 
 logger = get_logger(__name__)
 
@@ -58,6 +67,54 @@ app = FastAPI(
 )
 
 
+# @app.middleware("http")
+# async def log_requests(request: Request, call_next):
+#     request_id = str(uuid.uuid4())
+#     start_time = time.perf_counter()
+
+#     request.state.request_id = request_id
+
+#     logger.info(
+#         "request started",
+#         extra={
+#             "request_id": request_id,
+#             "method": request.method,
+#             "path": request.url.path,
+#         },
+#     )
+
+#     try:
+#         response = await call_next(request)
+#     except Exception:
+#         latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+#         logger.exception(
+#             "request failed",
+#             extra={
+#                 "request_id": request_id,
+#                 "method": request.method,
+#                 "path": request.url.path,
+#                 "latency_ms": latency_ms,
+#             },
+#         )
+#         raise
+
+#     latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+#     response.headers["X-Request-ID"] = request_id
+
+#     logger.info(
+#         "request completed",
+#         extra={
+#             "request_id": request_id,
+#             "method": request.method,
+#             "path": request.url.path,
+#             "status_code": response.status_code,
+#             "latency_ms": latency_ms,
+#         },
+#     )
+
+#     return response
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())
@@ -77,19 +134,42 @@ async def log_requests(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception:
-        latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        duration = time.perf_counter() - start_time
+
+        HTTP_REQUESTS_TOTAL.labels(
+            method=request.method,
+            path=request.url.path,
+            status_code="500",
+        ).inc()
+
+        HTTP_REQUEST_DURATION_SECONDS.labels(
+            method=request.method,
+            path=request.url.path,
+        ).observe(duration)
+
         logger.exception(
             "request failed",
             extra={
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
-                "latency_ms": latency_ms,
+                "latency_ms": round(duration * 1000, 2),
             },
         )
         raise
 
-    latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+    duration = time.perf_counter() - start_time
+
+    HTTP_REQUESTS_TOTAL.labels(
+        method=request.method,
+        path=request.url.path,
+        status_code=str(response.status_code),
+    ).inc()
+
+    HTTP_REQUEST_DURATION_SECONDS.labels(
+        method=request.method,
+        path=request.url.path,
+    ).observe(duration)
 
     response.headers["X-Request-ID"] = request_id
 
@@ -100,12 +180,11 @@ async def log_requests(request: Request, call_next):
             "method": request.method,
             "path": request.url.path,
             "status_code": response.status_code,
-            "latency_ms": latency_ms,
+            "latency_ms": round(duration * 1000, 2),
         },
     )
 
     return response
-
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -167,6 +246,12 @@ def health_check():
         "dataset_branch": meta.get("dataset_branch", "unknown"),
     }
 
+@app.get("/metrics")
+def metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
 
 @app.post("/predict", response_model=FraudResponse)
 def predict(req: FraudDetectionRequest, request: Request):
@@ -179,6 +264,11 @@ def predict(req: FraudDetectionRequest, request: Request):
     )
 
     result = predict_fraud(req)
+
+    # Update metrics
+    PREDICTIONS_TOTAL.labels(endpoint="predict").inc()
+    if result.is_fraud:
+        POSITIVE_PREDICTIONS_TOTAL.labels(endpoint="predict").inc()
 
     meta = ARTIFACTS.get("meta", {})
     model_version = os.getenv("MODEL_VERSION", "unknown")
@@ -223,6 +313,13 @@ def batch(reqs: list[FraudDetectionRequest], request: Request):
     )
 
     responses = batch_predict(reqs)
+
+    # Update metrics
+    for result in responses:
+        PREDICTIONS_TOTAL.labels(endpoint="batch").inc()
+        if result.is_fraud:
+            POSITIVE_PREDICTIONS_TOTAL.labels(endpoint="batch").inc()
+
 
     meta = ARTIFACTS.get("meta", {})
     model_version = os.getenv("MODEL_VERSION", "unknown")
@@ -276,6 +373,8 @@ def feedback(req: FeedbackRequest, request: Request):
             "source": req.source,
         },
     )
+
+    FEEDBACK_TOTAL.labels(source=req.source).inc()
 
     record = make_feedback_record(
         request_id=request_id,
