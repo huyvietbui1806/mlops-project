@@ -30,4 +30,8 @@ deployment/monitoring/prometheus/data/
 deployment/monitoring/alertmanager/data/
 
 # Environment file (chứa secrets)
-deployment/monitoring/.env
+deployment/monitoring/.env
+
+# Python bytecode
+__pycache__/
+*.pyc
