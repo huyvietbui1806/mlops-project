@@ -28,6 +28,8 @@ spec:
               value: fraud-detection-prediction
             - name: PREDICTION_PREFIX
               value: predictions
+            - name: FEEDBACK_PREFIX
+              value: feedbacks
             - name: APP_ENV
               value: staging
             - name: MODEL_VERSION

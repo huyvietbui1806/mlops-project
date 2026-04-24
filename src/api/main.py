@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 import uuid
 from contextlib import asynccontextmanager
 
@@ -15,6 +16,20 @@ from src.api.prediction_store import (
     make_prediction_record,
     save_prediction_record,
 )
+
+from src.api.schemas import (
+    FraudDetectionRequest,
+    FraudResponse,
+    BatchFraudResponse,
+    FeedbackRequest,
+    FeedbackResponse,
+)
+
+from src.storage.feedback_store import (
+    make_feedback_record,
+    save_feedback_record,
+)
+
 
 logger = get_logger(__name__)
 
@@ -247,4 +262,51 @@ def batch(reqs: list[FraudDetectionRequest], request: Request):
         results=responses,
         total=len(responses),
         fraud_count=sum(1 for r in responses if r.is_fraud),
+    )
+
+
+@app.post("/feedback", response_model=FeedbackResponse)
+def feedback(req: FeedbackRequest, request: Request):
+    request_id = getattr(request.state, "request_id", None)
+
+    logger.info(
+        "feedback endpoint invoked",
+        extra={
+            "prediction_id": req.prediction_id,
+            "source": req.source,
+        },
+    )
+
+    record = make_feedback_record(
+        request_id=request_id,
+        prediction_id=req.prediction_id,
+        actual_label=req.actual_label,
+        feedback_time=req.feedback_time,
+        source=req.source,
+    )
+
+    try:
+        blob_name = save_feedback_record(record)
+        logger.info(
+            "feedback record saved to gcs",
+            extra={
+                "feedback_id": record["feedback_id"],
+                "prediction_id": req.prediction_id,
+                "blob_name": blob_name,
+            },
+        )
+    except Exception as e:
+        logger.exception(
+            "failed to save feedback record",
+            extra={
+                "prediction_id": req.prediction_id,
+                "error": str(e),
+            },
+        )
+        raise
+
+    return FeedbackResponse(
+        status="success",
+        prediction_id=req.prediction_id,
+        stored_at=datetime.now(timezone.utc),
     )

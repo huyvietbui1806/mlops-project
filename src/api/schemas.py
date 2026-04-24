@@ -60,3 +60,15 @@ class BatchFraudResponse(BaseModel):
     results: List[FraudResponse]
     total: int
     fraud_count: int
+
+class FeedbackRequest(BaseModel):
+    prediction_id: str
+    actual_label: bool
+    feedback_time: Optional[datetime] = None
+    source: Literal["manual_review", "chargeback", "system", "other"] = "other"
+
+
+class FeedbackResponse(BaseModel):
+    status: str
+    prediction_id: str
+    stored_at: datetime
