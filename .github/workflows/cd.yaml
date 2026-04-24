@@ -125,6 +125,10 @@ jobs:
             --docker-password=${{ secrets.TEST_DOCKERHUB_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Apply ServiceAccount
+        run: |
+          kubectl apply -f deployment/k8s/sa.yaml
+
       - name: Render & apply Deployment
         run: |
           sed "s|IMAGE_PLACEHOLDER|${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g" \
