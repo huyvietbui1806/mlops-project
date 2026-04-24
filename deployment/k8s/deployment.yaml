@@ -23,6 +23,15 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
+          env:
+            - name: GCS_BUCKET_NAME
+              value: fraud-detection-prediction
+            - name: PREDICTION_PREFIX
+              value: predictions
+            - name: APP_ENV
+              value: staging
+            - name: MODEL_VERSION
+              value: v1.0.0
           resources:
             requests:
               memory: "256Mi"
