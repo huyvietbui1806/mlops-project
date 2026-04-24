@@ -1,0 +1,115 @@
+name: CT Pipeline
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"   # Retrain mỗi chủ nhật lúc 0AM UTC - cái này thay đổi được
+  push:                     # Chạy khi có lệnh push vào nhánh main
+    branches: [ main ]
+    paths:                  # Chỉ trigger khi có thay đổi liên quan, có thể điều chỉnh thêm những files mà mình muốn chạy lại khi mấy files này thay đổi
+      - "data/raw/**"
+      - "src/**"
+      - "configs/**"
+      - "params.yaml"
+  workflow_dispatch:
+
+jobs:
+  continuous-training:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    env: # mấy giá trị truyền vào thì ghi ở trong phần secrets của repo (cái Actions secrets and variables trong Settings của repo ấy)
+      AWS_ACCESS_KEY_ID:     ${{ secrets.LOCAL_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ap-southeast-1
+      S3_BUCKET_NAME:         ${{ secrets.S3_BUCKET_NAME }}       # chỗ này có thể là S3_BUCKET hoặc AWS_S3_BUCKET tại không nhớ lúc aws configure nó hỏi gì, có thể dùng 1 máy để chạy thử lại
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Sync environment
+        run: uv sync
+
+      - name: Pull latest data from S3     
+        run: |
+          uv run dvc pull --allow-missing
+      
+      # - name: Check AWS identity
+      #   run: |
+      #     aws sts get-caller-identity
+
+      # - name: Check AWS config
+      #   run: |
+      #     aws configure list
+
+      # - name: Test S3 access (list)
+      #   run: |
+      #     aws s3 ls s3://${{ env.S3_BUCKET_NAME }}
+
+      # - name: Test S3 upload (PutObject)
+      #   run: |
+      #     echo "test" > test.txt
+      #     aws s3 cp test.txt s3://${{ env.S3_BUCKET_NAME }}/mlflow-artifacts/test.txt
+
+      - name: Start MLflow server
+        run: |
+          uv run mlflow server \
+            --backend-store-uri sqlite:///mlflow.db \
+            --default-artifact-root ./mlruns \
+            --host 0.0.0.0 \
+            --port 5555 &
+          sleep 5
+
+      - name: Run full training pipeline
+        run: |
+          uv run dvc repro --force
+
+      - name: Push to S3
+        run: |
+          uv run dvc push
+
+      - name: Commit reports and meta back to Git # commit to Git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+          git add reports/training/baseline_leaderboard.csv
+          git add reports/training/best_model.json
+          git add models/trained/trained_model_meta.json
+          git add models/trained/tuning_pr_auc_by_trial.png
+          git add dvc.lock
+          git diff --cached --quiet || git commit -m "ct: retrain $(date +'%Y-%m-%d') [skip ci]"
+          git push
+
+      - name: Upload training reports as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-reports-${{ github.run_id }}
+          path: |
+            reports/training/baseline_leaderboard.csv
+            reports/training/best_model.json
+            models/trained/trained_model_meta.json
+            models/trained/tuning_pr_auc_by_trial.png
+          retention-days: 30
