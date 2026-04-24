@@ -25,7 +25,7 @@ from src.api.schemas import (
     FeedbackResponse,
 )
 
-from src.storage.feedback_store import (
+from src.api.feedback_store import (
     make_feedback_record,
     save_feedback_record,
 )
