@@ -42,11 +42,11 @@ spec:
               value: v1.0.0
           resources:
             requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
               memory: "256Mi"
               cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
           readinessProbe:
             httpGet:
               path: /health

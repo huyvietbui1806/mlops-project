@@ -163,7 +163,7 @@ jobs:
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/fraud-api-deployment --timeout=180s
+          kubectl rollout status deployment/fraud-api-deployment --timeout=240s
         continue-on-error: true
 
       - name: Debug Pods

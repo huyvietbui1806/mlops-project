@@ -12,9 +12,17 @@ service:
     - "0.0.0.0/0"
 adminUser: admin
 
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 250m
+    memory: 512Mi
+
 persistence:
   enabled: true
-  size: 2Gi
+  size: 1Gi
 
 datasources:
   datasources.yaml:
