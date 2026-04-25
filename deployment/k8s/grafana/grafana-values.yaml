@@ -1,0 +1,26 @@
+serviceAccount:
+  create: false
+  name: grafana-ksa
+
+service:
+  type: LoadBalancer
+  loadBalancerIP: "34.55.118.108"
+  loadBalancerSourceRanges:
+    - "0.0.0.0/0"
+adminUser: admin
+
+persistence:
+  enabled: true
+  size: 2Gi
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Google Cloud Monitoring
+        type: stackdriver
+        access: proxy
+        isDefault: true
+        jsonData:
+          authenticationType: gce
+          defaultProject: fraud-detection-493811

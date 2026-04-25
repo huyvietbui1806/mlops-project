@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-ksa
+  namespace: default
+  annotations:
+    iam.gke.io/gcp-service-account: grafana-monitoring-reader@fraud-detection-493811.iam.gserviceaccount.com
