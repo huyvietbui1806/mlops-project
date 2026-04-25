@@ -30,6 +30,12 @@ spec:
               value: predictions
             - name: FEEDBACK_PREFIX
               value: feedbacks
+            - name: DRIFT_REPORT_PREFIX
+              value: drift-reports
+            - name: PROJECT_ID
+              value: fraud-detection-493811
+            - name: BQ_DATASET
+              value: fraud_monitoring
             - name: APP_ENV
               value: staging
             - name: MODEL_VERSION
