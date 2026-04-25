@@ -2,6 +2,9 @@ serviceAccount:
   create: false
   name: grafana-ksa
 
+rbac:
+  create: false
+  
 service:
   type: LoadBalancer
   loadBalancerIP: "34.55.118.108"
