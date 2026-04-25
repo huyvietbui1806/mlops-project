@@ -147,7 +147,7 @@ jobs:
 
       - name: Apply Grafana Kubernetes ServiceAccount
         run: |
-          kubectl apply -f k8s/grafana/grafana-sa.yaml
+          kubectl apply -f deployment/k8s/grafana/grafana-sa.yaml
 
       - name: Add Grafana Helm repo
         run: |
@@ -158,9 +158,9 @@ jobs:
         run: |
           helm upgrade --install grafana grafana/grafana \
             -n default \
-            -f k8s/grafana/grafana-values.yaml \
+            -f deployment/k8s/grafana/grafana-values.yaml \
             --set adminPassword="${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
-            
+
       - name: Wait for rollout
         run: |
           kubectl rollout status deployment/fraud-api-deployment --timeout=180s
