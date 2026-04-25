@@ -137,6 +137,10 @@ jobs:
       - name: Apply Service
         run: |
           kubectl apply -f deployment/k8s/service.yaml
+      
+      - name: Apply PodMonitoring
+        run: |
+          kubectl apply -f deployment/k8s/pod-monitoring.yaml
 
       - name: Wait for rollout
         run: |
