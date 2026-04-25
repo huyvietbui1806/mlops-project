@@ -22,7 +22,7 @@ resources:
 
 persistence:
   enabled: true
-  size: 1Gi
+  size: 2Gi
 
 datasources:
   datasources.yaml:
