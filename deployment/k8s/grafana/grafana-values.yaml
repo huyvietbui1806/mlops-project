@@ -29,13 +29,15 @@ datasources:
     apiVersion: 1
     datasources:
       # Section A + B
-      - name: Google Managed Prometheus
-        type: prometheus
+      - name: Google Cloud Monitoring
+        uid: google-cloud-monitoring
+        type: stackdriver
         access: proxy
         isDefault: true
-        url: https://monitoring.googleapis.com/v1/projects/fraud-detection-493811/locations/global/prometheus
+        editable: true
         jsonData:
-          httpMethod: POST
+          authenticationType: gce
+          defaultProject: fraud-detection-493811
 
       # Section C + D
       - name: BigQuery
