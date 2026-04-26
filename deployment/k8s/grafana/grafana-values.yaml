@@ -28,10 +28,23 @@ datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-      - name: Google Cloud Monitoring
-        type: stackdriver
+      # Section A + B
+      - name: Google Managed Prometheus
+        type: prometheus
         access: proxy
         isDefault: true
+        url: https://monitoring.googleapis.com/v1/projects/fraud-detection-493811/locations/global/prometheus
+        jsonData:
+          httpMethod: POST
+
+      # Section C + D
+      - name: BigQuery
+        type: grafana-bigquery-datasource
+        access: proxy
         jsonData:
           authenticationType: gce
           defaultProject: fraud-detection-493811
+          processingLocation: US
+
+plugins:
+  - grafana-bigquery-datasource
