@@ -150,7 +150,26 @@ jobs:
         run: |
           kubectl delete job drift-report-initial --ignore-not-found=true
           kubectl create job drift-report-initial --from=cronjob/drift-report-job
+
+          sleep 30 
+          # In log realtime, không fail nếu pod chưa sẵn sàng
+          kubectl logs -f -l job-name=drift-report-initial || true
+
           kubectl wait --for=condition=complete job/drift-report-initial --timeout=300s
+        continue-on-error: true
+      
+      - name: Debug drift job if failed
+        if: always()
+        run: |
+          echo "=== Job status ==="
+          kubectl describe job drift-report-initial
+
+          echo "=== Pod status ==="
+          kubectl get pods -l job-name=drift-report-initial -o wide
+
+          echo "=== Pod logs ==="
+          kubectl logs -l job-name=drift-report-initial --previous || true
+          kubectl logs -l job-name=drift-report-initial || true
       
       - name: Apply PodMonitoring
         run: |
