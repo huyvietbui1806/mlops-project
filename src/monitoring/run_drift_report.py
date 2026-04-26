@@ -44,9 +44,9 @@ report = Report(metrics=[DataDriftPreset()])
 report.run(reference_data=reference_df, current_data=current_df)
 
 report.save_html("reports_monitoring/drift_report.html")
-result = upload_drift_report("reports/drift_report.html")
+result = upload_drift_report("reports_monitoring/drift_report.html")
 
-print("Drift report saved locally: reports/drift_report.html")
+print("Drift report saved locally: reports_monitoring/drift_report.html")
 print(f"Archive report uploaded to: gs://{GCS_BUCKET}/{result['archive_blob']}")
 print(f"Latest report uploaded to: gs://{GCS_BUCKET}/{result['latest_blob']}")
 
