@@ -1,8 +1,8 @@
 from google.cloud import bigquery
 import pandas as pd
 
-from evidently import Report
-from evidently.presets import DataDriftPreset
+from evidently.report import Report
+from evidently.metric_preset import DataDriftPreset
 from src.monitoring.report_store import GCS_BUCKET, upload_drift_report
 import os
 
@@ -39,7 +39,7 @@ current_df = client.query(CURRENT_QUERY).to_dataframe()
 report = Report(metrics=[DataDriftPreset()])
 report.run(reference_data=reference_df, current_data=current_df)
 
-report.save("reports_monitoring/drift_report.html")
+report.save_html("reports_monitoring/drift_report.html")
 result = upload_drift_report("reports_monitoring/drift_report.html")
 
 print("Drift report saved locally: reports_monitoring/drift_report.html")
