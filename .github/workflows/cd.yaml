@@ -145,6 +145,12 @@ jobs:
         run: |
           sed "s|IMAGE_PLACEHOLDER|${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g" \
             deployment/k8s/monitoring-cronjob.yaml | kubectl apply -f -
+
+      - name: Run drift report on deploy
+        run: |
+          kubectl delete job drift-report-initial --ignore-not-found=true
+          kubectl create job drift-report-initial --from=cronjob/drift-report-job
+          kubectl wait --for=condition=complete job/drift-report-initial --timeout=300s
       
       - name: Apply PodMonitoring
         run: |
