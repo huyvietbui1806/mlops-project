@@ -14,11 +14,6 @@ from src.monitoring.report_store import GCS_BUCKET, upload_drift_report
 # ==============================
 PROJECT_ID = os.getenv("PROJECT_ID", "")
 DATASET = os.getenv("BQ_DATASET", "fraud_monitoring")
-JOINED_VIEW = os.getenv(
-    "JOINED_VIEW",
-    f"{PROJECT_ID}.{DATASET}.prediction_feedback_joined"
-)
-
 REFERENCE_DATA_PATH = os.getenv("REFERENCE_DATA_PATH", "data/raw/train.csv")
 
 # ==============================
@@ -42,7 +37,7 @@ SELECT
   device_known,
   is_foreign_txn,
   has_2fa
-FROM `{JOINED_VIEW}`
+FROM `{PROJECT_ID}.{DATASET}.predictions_ext`
 """
 
 # ==============================
