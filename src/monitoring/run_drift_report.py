@@ -50,4 +50,4 @@ print("Drift report saved locally: reports_monitoring/drift_report.html")
 print(f"Archive report uploaded to: gs://{GCS_BUCKET}/{result['archive_blob']}")
 print(f"Latest report uploaded to: gs://{GCS_BUCKET}/{result['latest_blob']}")
 
-print("Drift report saved to reports/drift_report.html")
+print("Drift report saved to reports_monitoring/drift_report.html")
