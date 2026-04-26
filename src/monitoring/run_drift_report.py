@@ -36,6 +36,16 @@ client = bigquery.Client(project=PROJECT_ID)
 reference_df = pd.read_csv(REFERENCE_DATA_PATH)
 current_df = client.query(CURRENT_QUERY).to_dataframe()
 
+common_cols = [c for c in current_df.columns if c in reference_df.columns]
+reference_df = reference_df[common_cols]
+current_df = current_df[common_cols]
+
+for col in common_cols:
+    try:
+        reference_df[col] = reference_df[col].astype(current_df[col].dtype)
+    except Exception:
+        pass
+
 report = Report(metrics=[DataDriftPreset()])
 report.run(reference_data=reference_df, current_data=current_df)
 
