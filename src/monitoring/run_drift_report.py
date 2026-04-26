@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 from google.cloud import bigquery
 
-from evidently import Report
-from evidently.presets import DataDriftPreset
+from evidently.report import Report
+from evidently.metric_preset import DataDriftPreset
 from evidently import ColumnMapping
 
 from src.monitoring.report_store import GCS_BUCKET, upload_drift_report
