@@ -39,7 +39,7 @@ current_df = client.query(CURRENT_QUERY).to_dataframe()
 report = Report(metrics=[DataDriftPreset()])
 report.run(reference_data=reference_df, current_data=current_df)
 
-report.save_html("reports_monitoring/drift_report.html")
+report.save("reports_monitoring/drift_report.html")
 result = upload_drift_report("reports_monitoring/drift_report.html")
 
 print("Drift report saved locally: reports_monitoring/drift_report.html")
