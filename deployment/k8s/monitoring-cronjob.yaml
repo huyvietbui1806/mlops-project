@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: drift-report-job
+  namespace: default
+  labels:
+    app: fraud-monitoring
+    component: drift-report
+spec:
+  schedule: "0 1 * * *"        # Chạy mỗi ngày lúc 1AM UTC, chỉnh tuỳ ý
+  concurrencyPolicy: Forbid     # Không cho chạy song song nếu job trước chưa xong
+  successfulJobsHistoryLimit: 3 # Giữ lại 3 job thành công gần nhất
+  failedJobsHistoryLimit: 3     # Giữ lại 3 job thất bại gần nhất
+  jobTemplate:
+    spec:
+      backoffLimit: 2           # Retry tối đa 2 lần nếu fail
+      template:
+        metadata:
+          labels:
+            app: fraud-monitoring
+            component: drift-report
+        spec:
+          serviceAccountName: fraud-api-ksa  # Dùng lại KSA cũ, đã có quyền GCS + BQ
+          imagePullSecrets:
+            - name: dockerhub-secret
+          restartPolicy: OnFailure
+          containers:
+            - name: drift-report
+              image: IMAGE_PLACEHOLDER        # Sẽ được sed thay thế trong CD pipeline
+              imagePullPolicy: Always
+              command:
+                - uv
+                - run
+                - python
+                - -m
+                - src.monitoring.run_drift_report
+              env:
+                - name: GCS_BUCKET_NAME
+                  value: fraud-detection-prediction
+                - name: DRIFT_REPORT_PREFIX
+                  value: drift-reports
+                - name: PROJECT_ID
+                  value: fraud-detection-493811
+                - name: BQ_DATASET
+                  value: fraud_monitoring
+                - name: REFERENCE_DATA_PATH
+                  value: data/raw/train.csv
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "250m"

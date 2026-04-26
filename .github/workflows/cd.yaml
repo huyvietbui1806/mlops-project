@@ -140,6 +140,11 @@ jobs:
       - name: Apply Service
         run: |
           kubectl apply -f deployment/k8s/service.yaml
+
+      - name: Apply Drift CronJob
+        run: |
+          sed "s|IMAGE_PLACEHOLDER|${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}|g" \
+            deployment/k8s/monitoring-cronjob.yaml | kubectl apply -f -
       
       - name: Apply PodMonitoring
         run: |
