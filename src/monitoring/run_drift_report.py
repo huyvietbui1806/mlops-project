@@ -37,7 +37,7 @@ FROM `{JOINED_VIEW}`
 
 client = bigquery.Client(project=PROJECT_ID)
 
-reference_df = pd.read_csv(r"../../data/raw/train.csv")
+reference_df = pd.read_csv(os.getenv("REFERENCE_DATA_PATH", "data/raw/train.csv"))
 current_df = client.query(CURRENT_QUERY).to_dataframe()
 
 report = Report(metrics=[DataDriftPreset()])
