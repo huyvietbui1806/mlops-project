@@ -8,11 +8,7 @@ import os
 
 PROJECT_ID = os.getenv("PROJECT_ID", "")
 DATASET = os.getenv("BQ_DATASET", "fraud_monitoring")
-JOINED_VIEW = os.getenv(
-    "JOINED_VIEW",
-    f"{PROJECT_ID}.{DATASET}.prediction_feedback_joined"
-)
-
+REFERENCE_DATA_PATH = os.getenv("REFERENCE_DATA_PATH", "data/raw/train.csv")
 
 CURRENT_QUERY = f"""
 SELECT
@@ -32,12 +28,12 @@ SELECT
   device_known,
   is_foreign_txn,
   has_2fa
-FROM `{JOINED_VIEW}`
+FROM `{PROJECT_ID}.{DATASET}.predictions_ext`
 """
 
 client = bigquery.Client(project=PROJECT_ID)
 
-reference_df = pd.read_csv(os.getenv("REFERENCE_DATA_PATH", "data/raw/train.csv"))
+reference_df = pd.read_csv(REFERENCE_DATA_PATH)
 current_df = client.query(CURRENT_QUERY).to_dataframe()
 
 report = Report(metrics=[DataDriftPreset()])
