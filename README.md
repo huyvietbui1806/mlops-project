@@ -79,18 +79,22 @@ mlops-project/
 
 ## ⚙️ Tech stack
 
-| Category      | Tools                                     |
-| ------------- | ----------------------------------------- |
-| Language      | Python 3.11                              |
-| ML Libraries  | scikit-learn, XGBoost, LightGBM, CatBoost |
-| Data          | Pandas, NumPy                             |
-| Experiment    | MLflow                                    |
-| Pipeline      | DVC                                       |
-| API           | FastAPI                                   |
-| Container     | Docker                                    |
-| Orchestration | Kubernetes                                |
-| CI/CD         | GitHub Actions                            |
-
+| Category              | Tools / Frameworks                           |
+| --------------------- | -------------------------------------------- |
+| Language              | Python 3.11                                  |
+| Environment Manager   | uv                                           |
+| Data Processing       | Pandas, NumPy                                |
+| Machine Learning      | scikit-learn, XGBoost, LightGBM, CatBoost    |
+| Experiment Tracking   | MLflow                                       |
+| Pipeline Management   | DVC                                          |
+| API Serving           | FastAPI, Uvicorn                             |
+| Web UI                | Streamlit                                    |
+| Containerization      | Docker                                       |
+| Orchestration         | Kubernetes                                   |
+| CI / CD / CT          | GitHub Actions                               |
+| Monitoring            | Prometheus, Grafana, Evidently AI            |
+| Model/Data Drift      | Evidently AI                                 |
+| Metrics & Dashboard   | Prometheus, Grafana                          |
 ---
 
 ## 🧪 Environment Setup
@@ -149,10 +153,25 @@ uv run python src/features/FeatureEngineering.py
 This step:
 - Cleans transactional data
 - Creates behavioral features (velocity, ratios, time-based)
-- Saves:
-    - fe_params.pkl
-    - processed dataset
+- Main outputs:
 
+```text
+data/processed/
+├── train_log.parquet      # Training features for logistic-style models
+├── valid_log.parquet      # Validation features for logistic-style models
+├── test_log.parquet       # Test features for logistic-style models
+├── train_tree.parquet     # Training features for tree-based models
+├── valid_tree.parquet     # Validation features for tree-based models
+└── test_tree.parquet      # Test features for tree-based models
+
+models/trained/
+└── fe_params.pkl          # Feature engineering parameters used for inference
+
+models/artifacts/
+├── onehot_encoder.pkl     # Fitted OneHotEncoder for categorical features
+├── scaler.pkl             # Fitted scaler for numerical features
+└── label_encoders.pkl     # Fitted label encoders for categorical/tree features
+```
 ### 🧠 Step 2: Model Training
 Train models using configuration:
 ```bash
@@ -194,7 +213,10 @@ uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 A simple Streamlit interface is provided for interacting with the fraud detection API.
 
-Streamlit files are located in: src/streamlit/
+Streamlit files are located in: 
+```text
+src/streamlit/
+```
 
 Run the Streamlit app:
 ```bash
