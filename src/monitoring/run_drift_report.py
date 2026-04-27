@@ -6,8 +6,8 @@ from google.cloud import bigquery
 from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset
 from evidently import ColumnMapping
-from evidently.metrics import DataDriftTable
-from evidently.metrics import DatasetDriftMetric
+# from evidently.metrics import DataDriftTable
+# from evidently.metrics import DatasetDriftMetric
 
 from src.monitoring.report_store import GCS_BUCKET, upload_drift_report
 
@@ -17,6 +17,8 @@ from src.monitoring.report_store import GCS_BUCKET, upload_drift_report
 PROJECT_ID = os.getenv("PROJECT_ID", "")
 DATASET = os.getenv("BQ_DATASET", "fraud_monitoring")
 REFERENCE_DATA_PATH = os.getenv("REFERENCE_DATA_PATH", "data/raw/train.csv")
+MIN_ROWS = int(os.getenv("MIN_ROWS", "50"))
+MIN_UNIQUE = int(os.getenv("MIN_UNIQUE", "2"))
 
 # ==============================
 # QUERY
@@ -49,17 +51,24 @@ client = bigquery.Client(project=PROJECT_ID)
 
 print("Loading reference data...")
 reference_df = pd.read_csv(REFERENCE_DATA_PATH)
+print("Reference shape:", reference_df.shape)
 
 print("Loading current data from BigQuery...")
 current_df = client.query(CURRENT_QUERY).to_dataframe()
-
-print("Reference shape:", reference_df.shape)
 print("Current shape:", current_df.shape)
+
+# ==============================
+# CHECK MINIMUM ROWS
+# ==============================
+if len(current_df) < MIN_ROWS:
+    print(f"Not enough data: {len(current_df)} rows (min {MIN_ROWS}). Skipping report.")
+    exit(0)
 
 # ==============================
 # ALIGN COLUMNS
 # ==============================
 common_cols = [c for c in current_df.columns if c in reference_df.columns]
+print(f"Common columns: {len(common_cols)} — {common_cols}")
 
 reference_df = reference_df[common_cols].copy()
 current_df = current_df[common_cols].copy()
@@ -87,48 +96,72 @@ for col in common_cols:
         pass
 
 # ==============================
-# SELECT NUMERIC COLUMNS SAFELY
+# FILTER COLUMNS ĐỦ ĐIỀU KIỆN
 # ==============================
-numeric_cols = current_df.select_dtypes(include=["number"]).columns.tolist()
+valid_cols = []
 
-clean_numeric_cols = []
+for col in common_cols:
+    ref_col = reference_df[col]
+    cur_col = current_df[col]
 
-for col in numeric_cols:
-    # skip all-null
-    if current_df[col].isna().all():
-        print(f"Drop {col}: all NULL")
+    if cur_col.isna().all() or ref_col.isna().all():
+        print(f"Skip {col}: all NULL")
         continue
 
-    # skip constant
-    if current_df[col].nunique(dropna=True) <= 1:
-        print(f"Drop {col}: constant")
+    if cur_col.nunique(dropna=True) < MIN_UNIQUE:
+        print(f"Skip {col}: constant in current")
         continue
 
-    clean_numeric_cols.append(col)
+    if ref_col.nunique(dropna=True) < MIN_UNIQUE:
+        print(f"Skip {col}: constant in reference")
+        continue
 
-print("Final numeric columns:", clean_numeric_cols)
+    if cur_col.dropna().shape[0] < MIN_ROWS:
+        print(f"Skip {col}: not enough rows ({cur_col.dropna().shape[0]})")
+        continue
+    
+    valid_cols.append(col)
+
+print(f"Valid columns: {valid_cols}")
+
+if not valid_cols:
+    print("No valid columns. Skipping report.")
+    exit(0)
 
 # ==============================
-# HANDLE NaN
+# APPLY VALID COLUMNS
 # ==============================
-reference_df[clean_numeric_cols] = reference_df[clean_numeric_cols].fillna(0)
-current_df[clean_numeric_cols] = current_df[clean_numeric_cols].fillna(0)
+reference_df = reference_df[valid_cols].copy()
+current_df = current_df[valid_cols].copy()
+
+# Fill NaN
+reference_df = reference_df.fillna(0)
+current_df = current_df.fillna(0)
 
 # ==============================
 # COLUMN MAPPING
 # ==============================
+numeric_cols = [c for c in valid_cols if current_df[c].dtype in ["float64", "int64", "int32", "float32"]]
+cat_cols = [c for c in valid_cols if current_df[c].dtype == "object"]
+
 column_mapping = ColumnMapping()
-column_mapping.numerical_features = clean_numeric_cols
+column_mapping.numerical_features = numeric_cols
+column_mapping.categorical_features = cat_cols
+
+print(f"Numeric columns: {numeric_cols}")
+print(f"Categorical columns: {cat_cols}")
 
 # ==============================
 # RUN DRIFT REPORT
 # ==============================
 print("Running Evidently report...")
 
-report = Report(metrics=[
-    DatasetDriftMetric(),
-    DataDriftTable(),
-])
+# report = Report(metrics=[
+#     DatasetDriftMetric(),
+#     DataDriftTable(),
+# ])
+
+report = Report(metrics=[DataDriftPreset(cat_stattest_threshold=0.05)])
 
 report.run(
     reference_data=reference_df,
