@@ -6,6 +6,8 @@ from google.cloud import bigquery
 from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset
 from evidently import ColumnMapping
+from evidently.metrics import DataDriftTable
+from evidently.metrics import DatasetDriftMetric
 
 from src.monitoring.report_store import GCS_BUCKET, upload_drift_report
 
@@ -123,7 +125,10 @@ column_mapping.numerical_features = clean_numeric_cols
 # ==============================
 print("Running Evidently report...")
 
-report = Report(metrics=[DataDriftPreset()])
+report = Report(metrics=[
+    DatasetDriftMetric(),
+    DataDriftTable(),
+])
 
 report.run(
     reference_data=reference_df,
