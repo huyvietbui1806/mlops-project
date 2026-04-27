@@ -72,7 +72,6 @@ mlops-project/
 ├── params.ci.yaml                # Lightweight parameters for CI
 ├── pyproject.toml                # Project dependencies and configuration
 ├── uv.lock                       # Reproducible dependency lock file
-├── implementation_plan.md
 └── README.md
 ```
 ---
@@ -92,7 +91,6 @@ mlops-project/
 | Containerization      | Docker                                       |
 | Orchestration         | Kubernetes                                   |
 | CI / CD / CT          | GitHub Actions                               |
-| Monitoring            | Prometheus, Grafana, Evidently AI            |
 | Model/Data Drift      | Evidently AI                                 |
 | Metrics & Dashboard   | Prometheus, Grafana                          |
 ---
@@ -251,8 +249,8 @@ Located in:
 ```
 Includes:
 - `ci.yaml` → CI (Continuous Integration): Performs code quality checks, linting, and unit testing.
-- `cd.yaml` → CD (Continuous Deployment): Builds, packages, and deploys the application to a Kubernetes cluster.
 - `ct.yaml` → CT (Continuous Training): Automates model retraining workflows when new data becomes available.
+- `cd.yaml` → CD (Continuous Deployment): Builds, packages, and deploys the application to a Kubernetes cluster.
 
 ## 📈 Monitoring and Drift Reports
 
