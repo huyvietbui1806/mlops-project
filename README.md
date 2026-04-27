@@ -12,66 +12,67 @@ This project goes beyond model training by focusing on production readiness, sca
 
 ```
 mlops-project/
-│
-├── .dvc/                     # DVC metadata
-├── .github/workflows/        # CI/CD pipelines
+├── .dvc/                         # DVC metadata and local cache
+├── .github/workflows/            # CI / CD / CT automation workflows
 │   ├── ci.yaml
 │   ├── cd.yaml
 │   └── ct.yaml
-│
-├── .venv/
-├── configs/                  # Model configuration
-│   └── model_config.yaml
-│
+├── configs/
+│   └── model_config.yaml         # Model and training configuration
 ├── data/
-│   ├── csv/                  # Datasets
-│   ├── raw/                  # Raw data (DVC tracked)
-│   └── sample/               # Sample datasets
-│
+│   ├── csv/                      # Source CSV datasets
+│   ├── raw/                      # Raw data
+│   ├── processed/                # Processed train / validation / test datasets
+│   └── sample/                   # Small sample data for testing or demo
 ├── deployment/
-│   ├── k8s/                  # Kubernetes manifests
-│   │   ├── deployment.yaml
-│   │   └── service.yaml
-│   └── mlflow/               # MLflow Docker setup
-│       └── docker-compose.yaml
-│
+│   ├── k8s/                      # Kubernetes manifests
+│   └── mlflow/                   # MLflow Docker Compose setup
 ├── models/
-│   ├── artifacts/            # Encoders, preprocessors
-│   └── trained/              # Final trained models
-│       ├── fraud_model.pkl
-│       ├── fe_params.pkl
-│       ├── model_columns.pkl
-│       ├── trained_model.pkl
-│       └── trained_model_meta.json
-│
-├── notebooks/                # EDA & experimentation
-│   ├── EDA.ipynb
-│   ├── FeatureEngineering.ipynb
-│   └── Modeling.ipynb
-│
-├── reports/                  # Training reports
-│
+│   ├── artifacts/                # Intermediate model artifacts
+│   └── trained/                  # Final trained model and inference artifacts
+├── notebooks/
+│   ├── EDA.ipynb                 # Exploratory data analysis
+│   ├── FeatureEngineering.ipynb  # Feature engineering experiments
+│   └── Modeling.ipynb            # Model comparison and reporting
+├── reports/
+│   └── training/
+│       ├── baseline_leaderboard.csv
+│       └── best_model.json
+├── reports_monitoring/           # Generated monitoring and drift reports
 ├── src/
-│   ├── api/                  # FastAPI inference service
+│   ├── api/                      # FastAPI inference service
 │   │   ├── main.py
 │   │   ├── inference.py
-│   │   └── schemas.py
-│   │
-│   ├── data/                  
-│   ├── features/             # Feature engineering
+│   │   ├── schemas.py
+│   │   ├── logger.py
+│   │   ├── prediction_store.py
+│   │   └── feedback_store.py
+│   ├── data/
+│   │   └── get_data_v1.py
+│   ├── features/
 │   │   └── FeatureEngineering.py
-│   │
-│   ├── model/                # Training & tuning
+│   ├── mlops_project/
+│   │   └── __init__.py
+│   ├── model/
 │   │   ├── train_models.py
 │   │   └── tune_model.py
-│   │
-│   └── data/                 # Data processing
-│
-├── Dockerfile                # API container
-├── dvc.yaml                  # ML pipeline definition
-├── params.yaml               # Pipeline parameters
-├── params.ci.yaml            # CI parameters
-├── pyproject.toml            # Dependency management
+│   ├── monitoring/
+│   │   ├── metrics.py
+│   │   ├── report_store.py
+│   │   └── run_drift_report.py
+│   └── streamlit/
+│       ├── app.py
+│       ├── web.py
+│       ├── requirements.txt
+│       └── css/
+├── Dockerfile                    # Docker image for the API service
+├── dvc.yaml                      # DVC pipeline definition
+├── dvc.lock                      # Locked DVC pipeline state
+├── params.yaml                   # Main pipeline parameters
+├── params.ci.yaml                # Lightweight parameters for CI
+├── pyproject.toml                # Project dependencies and configuration
+├── uv.lock                       # Reproducible dependency lock file
+├── implementation_plan.md
 └── README.md
 ```
 ---
@@ -100,11 +101,26 @@ git clone https://github.com/huyvietbui1806/mlops-project.git
 cd mlops-project
 ```
 
-2. **Create virtual environment:**
+## 2. Create virtual environment
+
+```bash
+uv venv .venv --python 3.11
 ```
-uv -m venv
-uv -m sync
+
+Activate the environment:
+
+### Windows PowerShell
+
+```bash
+.venv\Scripts\Activate.ps1
 ```
+
+### Linux / macOS
+
+```bash
+source .venv/bin/activate
+```
+
 3. **Install dependencies:**
 ```
 uv sync
@@ -127,8 +143,8 @@ http://localhost:5555
 ## 🔁 Model Workflow
 ### 🧹 Step 1: Data & Feature Engineering
 Run feature engineering pipeline:
-```
-python src/features/FeatureEngineering.py
+```bash
+uv run python src/features/FeatureEngineering.py
 ```
 This step:
 - Cleans transactional data
@@ -139,24 +155,21 @@ This step:
 
 ### 🧠 Step 2: Model Training
 Train models using configuration:
-```
-python src/model/train_models.py \
-  --config configs/model_config.yaml
+```bash
+uv run python src/model/train_models.py --config configs/model_config.yaml
 ```
 This step:
 - Trains multiple models (Logistic Regression, Tree-based)
 - Logs experiments to MLflow
 - Saves artifacts:
 ```
-models/trained/
-├── trained_model.pkl
-├── fraud_model.pkl
-├── model_columns.pkl
-└── trained_model_meta.json
+reports/training/
+├── baseline_leaderboard.csv
+└── best_model.json
 ```
 ### 🔍 Step 3: Model Tuning
-```
-python src/model/tune_model.py
+```bash
+uv run python src/model/tune_model.py
 ```
 Uses:
 - Optuna for hyperparameter tuning
@@ -164,22 +177,36 @@ Uses:
 - threshold selection for final fraud classification
 
 Outputs include:
-- tuned model artifacts
-- trained_model_meta.json
-- tuning_pr_auc_by_trial.png
-- best_model.json
+```
+models/trained/
+├── trained_model.pkl
+├── fe_params.pkl
+├── model_columns.pkl
+├── trained_model_meta.json
+└── tuning_pr_auc_by_trial.png
+```
 ## 🚀 Running FastAPI Inference Service
 Start API locally:
-```
+```bash
 uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+## 🖥️ Streamlit User Interface
+
+A simple Streamlit interface is provided for interacting with the fraud detection API.
+
+Streamlit files are located in: src/streamlit/
+
+Run the Streamlit app:
+```bash
+uv run streamlit run src/streamlit/app.py
 ```
 ## 🐳 Docker Setup
 **Build API image**
-```
+```bash
 docker build -t fraud-detection-api .
 ```
 **Run container**
-```
+```bash
 docker run -p 8000:8000 fraud-detection-api
 ```
 ## ☸️ Kubernetes Deployment
@@ -205,6 +232,16 @@ Includes:
 - `cd.yaml` → CD (Continuous Deployment): Builds, packages, and deploys the application to a Kubernetes cluster.
 - `ct.yaml` → CT (Continuous Training): Automates model retraining workflows when new data becomes available.
 
+## 📈 Monitoring and Drift Reports
+
+Monitoring logic is implemented in:
+
+```
+src/monitoring/
+├── metrics.py
+├── report_store.py
+└── run_drift_report.py
+```
 ## 🚀 Continuous Deployment to Google Kubernetes Engine (GKE)
 
 This project leverages Google Kubernetes Engine (GKE) to enable scalable, reliable, and production-grade deployment of the fraud detection API.
@@ -272,8 +309,9 @@ This project demonstrates:
 
 ## 🤝 Contributing
 
-We welcome contributions!
-- Fork repository
-- Create feature branch
-- Commit changes
-- Open Pull Request
+Contributions are welcome!
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes with a clear message
+4. Open a pull request
