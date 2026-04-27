@@ -80,7 +80,7 @@ mlops-project/
 
 | Category      | Tools                                     |
 | ------------- | ----------------------------------------- |
-| Language      | Python 3.10+                              |
+| Language      | Python 3.11                              |
 | ML Libraries  | scikit-learn, XGBoost, LightGBM, CatBoost |
 | Data          | Pandas, NumPy                             |
 | Experiment    | MLflow                                    |
@@ -96,15 +96,14 @@ mlops-project/
 
 1. **Clone repository:**
 ```
-git clone https://github.com/<your-org>/mlops-project.git
+git clone https://github.com/huyvietbui1806/mlops-project.git
 cd mlops-project
 ```
 
 2. **Create virtual environment:**
 ```
-python -m venv .venv
-source .venv/bin/activate      # Linux/Mac
-.venv\Scripts\activate         # Windows
+uv -m venv
+uv -m sync
 ```
 3. **Install dependencies:**
 ```
@@ -161,10 +160,18 @@ python src/model/tune_model.py
 ```
 Uses:
 - Optuna for hyperparameter tuning
-- MLflow for tracking
+- MLflow for experiment tracking
+- threshold selection for final fraud classification
+
+Outputs include:
+- tuned model artifacts
+- trained_model_meta.json
+- tuning_pr_auc_by_trial.png
+- best_model.json
 ## 🚀 Running FastAPI Inference Service
 Start API locally:
 ```
+uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 ## 🐳 Docker Setup
 **Build API image**
@@ -234,12 +241,16 @@ gcloud services enable \
   artifactregistry.googleapis.com
 ```
 3. **Configure Cluster Access**
+```
 gcloud container clusters get-credentials fraud-detection-cluster \
   --zone us-central1-a
+```
 4. **Create Artifact Registry**
+```
 gcloud artifacts repositories create fraud-repo \
   --repository-format=docker \
   --location=asia-southeast1
+```
 
 ### 🔐 GitHub Secrets Configuration
 
