@@ -22,7 +22,6 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.LOCAL_AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION:    ap-southeast-1
       S3_BUCKET_NAME:        ${{ secrets.S3_BUCKET_NAME }}
-      # ← Đổi lại thành Docker Hub format
       IMAGE_NAME: ${{ secrets.TEST_DOCKERHUB_USERNAME }}/${{ secrets.TEST_DOCKERHUB_REPO }}
 
     outputs:
@@ -62,7 +61,7 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           echo "IMAGE_TAG=${SHORT_SHA}" >> $GITHUB_OUTPUT
 
-      # ← Bỏ GCP auth/configure-docker, thay bằng Docker Hub login
+      # Docker Hub login
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:

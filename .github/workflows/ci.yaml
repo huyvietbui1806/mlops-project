@@ -2,9 +2,18 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main]
+    branches: [ main ]
+    paths:
+      - "data/raw/**"
+      - "src/data/**"
+      - "src/features/**"
+      - "src/model/**"
+      - "configs/**"
+      - "params.yaml"
+      - "params.ci.yaml"
   pull_request:
-    branches: [ main]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   ci-checks:
