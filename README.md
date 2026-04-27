@@ -20,7 +20,6 @@ mlops-project/
 ├── configs/
 │   └── model_config.yaml         # Model and training configuration
 ├── data/
-│   ├── csv/                      # Source CSV datasets
 │   ├── raw/                      # Raw data
 │   ├── processed/                # Processed train / validation / test datasets
 │   └── sample/                   # Small sample data for testing or demo
@@ -103,7 +102,7 @@ git clone https://github.com/huyvietbui1806/mlops-project.git
 cd mlops-project
 ```
 
-## 2. Create virtual environment
+2. Create virtual environment
 
 ```bash
 uv venv .venv --python 3.11
@@ -127,6 +126,19 @@ source .venv/bin/activate
 ```
 uv sync
 ```
+## 🔑 Configure AWS Credentials
+Run the following command:
+```
+aws configure
+```
+Then provide your credentials:
+```
+AWS AccessKey ID: <your-access-key>
+AWS Secret Access Key: <your-secret-key>
+Default region name: ap-southeast-1
+Default output format: json
+```
+You can obtain your credentials from the IAM service in Amazon Web Services.
 ## 📊 Setup MLflow for Experiment Tracking
 MLflow is configured using Docker Compose inside:
 ```
@@ -317,6 +329,8 @@ To enable secure deployment, the following secrets must be configured in the rep
 - `GCP_SA_KEY` – Service account credentials (JSON)
 - `GKE_CLUSTER_NAME` – Target Kubernetes cluster
 - `GKE_ZONE` – Cluster zone
+- `AWS_ACCESS_KEY_ID` – AWS Access Key for S3/Model storage
+- `AWS_SECRET_ACCESS_KEY` – AWS Secret Access Key
 
 ## 🧠 Learn More About MLOps
 
@@ -326,6 +340,7 @@ This project demonstrates:
 - Containerized deployment (Docker)
 - Scalable orchestration (Kubernetes)
 - CI/CD automation
+- Monitoring, Observability and Alert (Evidently AI, Prometheus, Grafana)
 
 ## 🤝 Contributing
 
